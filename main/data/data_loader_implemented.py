@@ -5,6 +5,8 @@ import scipy.misc as m
 
 from torch.utils import data
 
+
+
 #from ptsemseg.utils import recursive_glob
 #from ptsemseg.augmentations import *
 
@@ -179,3 +181,17 @@ class cityscapesLoader(data.Dataset):
         return [os.path.join(looproot, filename)
                 for looproot, _, filenames in os.walk(rootdir)
                 for filename in filenames if filename.endswith(suffix)]
+
+
+
+def get_data_loader(root_data_path, transforms, img_size, batch_size=32, worker_num=8):
+    if len(img_size) == 1:
+        img_size = 2 * img_size
+    dataloader_trn = cityscapesLoader(root_data_path, img_size=img_size, is_transform=True,
+                                      augmentations=transforms)
+    dataloader_val = cityscapesLoader(root_data_path, img_size=img_size, is_transform=True,
+                                      augmentations=transforms, split='val')
+
+    val_loader = data.DataLoader(dataloader_val, batch_size=batch_size, num_workers=worker_num)
+    train_loader = data.DataLoader(dataloader_trn, batch_size=batch_size, shuffle=True, num_workers=worker_num)
+    return val_loader, train_loader

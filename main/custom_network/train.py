@@ -67,7 +67,7 @@ def train(args):
         print('Using custom loss')
         loss_fn = model.module.loss
     else:
-        loss_fn = cross_entropy2
+        loss_fn = cross_entropy2d
 
     if args.resume is not None:                                         
         if os.path.isfile(args.resume):
