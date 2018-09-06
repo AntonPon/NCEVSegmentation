@@ -1,8 +1,10 @@
 #import argparse
 import torch
-import numpy as np
-#from torch import nn
+#import numpy as np
+from torch import nn
 from torchvision import transforms
+
+
 
 from main.src.unet.unet_model import Unet
 from main.data.data_loader_implemented import get_data_loader
@@ -21,8 +23,12 @@ def train(agrs=''):
                                     transforms.RandomHorizontalFlip(),
                                     transforms.Resize(img_size),
                                     transforms.ToTensor(),
-                                    transforms.Normalize(mean=[73.15835921, 82.90891754,72.39239876], std=[255., 255., 255.])])
-    val_loader, train_loader = get_data_loader(root_data_path, transform, img_size, batch_size=batch_szie, worker_num=worker_num)
+                                    transforms.Normalize(mean=[73.15835921, 82.90891754, 72.39239876],
+                                                         std=[255., 255., 255.])])
+
+
+    val_loader, train_loader = get_data_loader(root_data_path, transform, img_size, batch_size=batch_szie,
+                                               worker_num=worker_num)
 
     device = 'cpu'
     if torch.cuda.is_available() and cuda_usage:
@@ -35,7 +41,7 @@ def train(agrs=''):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e04)
 
-    criterion = IoU().to(device) #nn.CrossEntropyLoss# need to write criterion
+    criterion = IoU().to(device) #nn.CrossEntropyLoss()# need to write criterion
 
     for epoch in range(0, 100):
         model.train()
@@ -46,20 +52,19 @@ def train(agrs=''):
             labels = labels.to(device)
 
             output = model(images)
-            weights = torch.ones(output.shape[0]).to(device)
+            weights = torch.ones(output.shape[1]).to(device)
             loss = criterion(output, labels, weights)
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            print(loss.data[0], 'dataloss')
+            print(loss.item(), 'dataloss')
             #here can be logging
-        print(loss.data[0], 'loss')
+        print(loss.item(), 'loss')
         model.eval()
         with model.no_grad():
             for i, (images, labels) in enumerate(val_loader):
                 pass
-
 
 
 if __name__ == '__main__':

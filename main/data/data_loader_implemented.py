@@ -67,7 +67,7 @@ class cityscapesLoader(data.Dataset):
         self.augmentations = augmentations
         self.img_norm = img_norm
         self.n_classes = 19
-        self.img_size = img_size if isinstance(img_size, tuple) else (img_size, img_size)
+        self.img_size = img_size
         self.mean = np.array(self.mean_rgb[version])
         self.files = {}
 
@@ -119,11 +119,11 @@ class cityscapesLoader(data.Dataset):
 
         lbl = m.imread(lbl_path)
         lbl = self.encode_segmap(np.array(lbl, dtype=np.uint8))
-
         if self.augmentations is not None:
             img, lbl = Image.fromarray(img, mode='RGB'), Image.fromarray(lbl, mode='L')
-            img = self.augmentations(img).numpy()
-            lbl = self.augmentations(lbl).numpy()
+            img = self.augmentations(img)
+            lbl = self.augmentations(lbl)
+            #print(type(lbl))
 
         #if self.is_transform:
         #    img, lbl = self.transform(img, lbl)
@@ -136,6 +136,7 @@ class cityscapesLoader(data.Dataset):
         :param img:
         :param lbl:
         """
+
         img = m.imresize(img, (self.img_size[0], self.img_size[1]))  # uint8 with RGB mode
         img = img[:, :, ::-1]  # RGB -> BGR
         img = img.astype(np.float64)
@@ -148,7 +149,8 @@ class cityscapesLoader(data.Dataset):
         img = img.transpose(2, 0, 1)
 
         classes = np.unique(lbl)
-        lbl = lbl.astype(float)
+        lbl = np.array(lbl).astype(float)
+
         lbl = m.imresize(lbl, (self.img_size[0], self.img_size[1]), 'nearest', mode='F')
         lbl = lbl.astype(int)
 
