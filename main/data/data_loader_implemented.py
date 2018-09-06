@@ -1,14 +1,17 @@
 import os
+import cv2
 import torch
 import numpy as np
 import scipy.misc as m
 
 from torch.utils import data
-
+from PIL import Image
 
 
 #from ptsemseg.utils import recursive_glob
 #from ptsemseg.augmentations import *
+
+
 
 
 class cityscapesLoader(data.Dataset):
@@ -88,6 +91,15 @@ class cityscapesLoader(data.Dataset):
 
         print("Found %d %s images" % (len(self.files[split]), split))
 
+    def recursive_glob(self, rootdir='.', suffix=''):
+        """Performs recursive glob with given suffix and rootdir
+            :param rootdir is the root directory
+            :param suffix is the suffix to be searched
+        """
+        return [os.path.join(looproot, filename)
+                for looproot, _, filenames in os.walk(rootdir)
+                for filename in filenames if filename.endswith(suffix)]
+
     def __len__(self):
         """__len__"""
         return len(self.files[self.split])
@@ -102,17 +114,19 @@ class cityscapesLoader(data.Dataset):
                                 img_path.split(os.sep)[-2],
                                 os.path.basename(img_path)[:-15] + 'gtFine_labelIds.png')
 
-        img = m.imread(img_path)
+        img = cv2.imread(img_path)
         img = np.array(img, dtype=np.uint8)
 
         lbl = m.imread(lbl_path)
         lbl = self.encode_segmap(np.array(lbl, dtype=np.uint8))
 
         if self.augmentations is not None:
-            img, lbl = self.augmentations(img, lbl)
+            img, lbl = Image.fromarray(img, mode='RGB'), Image.fromarray(lbl, mode='L')
+            img = self.augmentations(img).numpy()
+            lbl = self.augmentations(lbl).numpy()
 
-        if self.is_transform:
-            img, lbl = self.transform(img, lbl)
+        #if self.is_transform:
+        #    img, lbl = self.transform(img, lbl)
 
         return img, lbl
 
@@ -173,20 +187,13 @@ class cityscapesLoader(data.Dataset):
             mask[mask == _validc] = self.class_map[_validc]
         return mask
 
-    def recursive_glob(rootdir='.', suffix=''):
-        """Performs recursive glob with given suffix and rootdir
-            :param rootdir is the root directory
-            :param suffix is the suffix to be searched
-        """
-        return [os.path.join(looproot, filename)
-                for looproot, _, filenames in os.walk(rootdir)
-                for filename in filenames if filename.endswith(suffix)]
 
 
 
 def get_data_loader(root_data_path, transforms, img_size, batch_size=32, worker_num=8):
     if len(img_size) == 1:
         img_size = 2 * img_size
+    print(root_data_path)
     dataloader_trn = cityscapesLoader(root_data_path, img_size=img_size, is_transform=True,
                                       augmentations=transforms)
     dataloader_val = cityscapesLoader(root_data_path, img_size=img_size, is_transform=True,

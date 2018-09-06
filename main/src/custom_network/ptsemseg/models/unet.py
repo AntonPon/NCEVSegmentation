@@ -42,35 +42,22 @@ class unet(nn.Module):
         self.final = nn.Conv2d(filters[0], n_classes, 1)
 
     def forward(self, inputs):
-        #print(inputs.shape, 'inputs bla bla bla')
         conv1 = self.conv1(inputs)
-        #print(conv1.shape, 'conv1 shape')
         maxpool1 = self.maxpool1(conv1)
 
         conv2 = self.conv2(maxpool1)
-        #print(conv2.shape)
         maxpool2 = self.maxpool2(conv2)
 
         conv3 = self.conv3(maxpool2)
-        #print(conv3.shape)
         maxpool3 = self.maxpool3(conv3)
 
         conv4 = self.conv4(maxpool3)
-        #print(conv4.shape, 'conv4')
         maxpool4 = self.maxpool4(conv4)
 
         center = self.center(maxpool4)
-        #print(center.shape, 'center')
         up4 = self.up_concat4(conv4, center)
-        #print(up4.shape, 'up4')
         up3 = self.up_concat3(conv3, up4)
-        #print(up3.shape)
         up2 = self.up_concat2(conv2, up3)
-        #print(up2.shape)
         up1 = self.up_concat1(conv1, up2)
-        #print('up-------------------', up1.shape)
-        #final = self.final(self.up_concat0(inputs, up1))
-        #final = self.final(self.up_concat0(up1))
         final = self.final(up1)
-        #print('final----------------', final.shape)
         return final

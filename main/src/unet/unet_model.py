@@ -3,14 +3,20 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class ResBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, batch_norm=True):
         super(ResBlock, self).__init__()
-        self.conv1 = nn.Sequential(nn.Conv2d(in_channels, out_channels, 3, 1, 1),
-                                   nn.BatchNorm2d(out_channels),
-                                   nn.ReLU(), )
-        self.conv2 = nn.Sequential(nn.Conv2d(out_channels, out_channels, 3, 1, 1),
-                                   nn.BatchNorm2d(out_channels),
-                                   nn.ReLU, )
+        if batch_norm:
+            self.conv1 = nn.Sequential(nn.Conv2d(in_channels, out_channels, 3, 1, 1),
+                                       nn.BatchNorm2d(out_channels),
+                                       nn.ReLU(),)
+            self.conv2 = nn.Sequential(nn.Conv2d(out_channels, out_channels, 3, 1, 1),
+                                       nn.BatchNorm2d(out_channels),
+                                       nn.ReLU(),)
+        else:
+            self.conv1 = nn.Sequential(nn.Conv2d(in_channels, out_channels, 3, 1, 1),
+                                       nn.ReLU(), )
+            self.conv2 = nn.Sequential(nn.Conv2d(out_channels, out_channels, 3, 1, 1),
+                                       nn.ReLU(), )
 
     def forward(self, x):
         output = self.conv1(x)
@@ -19,15 +25,17 @@ class ResBlock(nn.Module):
 class UpConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(UpConvBlock, self).__init__()
-        self.conv = ResBlock(in_channels, out_channels)
-
+        self.conv = ResBlock(in_channels, out_channels, False)
+        #self.in_chab = in_channels
         self.up = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
 
     def forward(self, prev_up, conv_in):
+        #print(self.up, self.in_chab, 'up')
         up_cur = self.up(prev_up)
-        resize_input = (prev_up.size(2) - conv_in.size(2)) // 2
-        padd = 2*[resize_input, resize_input]
+        resize_input = (up_cur.size(2) - conv_in.size(2)) // 2
+        padd = 2 * [resize_input, resize_input]
         resized_conv = F.pad(conv_in, padd)
+
         return self.conv(torch.cat([resized_conv, up_cur], 1))
 
 
@@ -36,7 +44,7 @@ class Unet(nn.Module):
         super(Unet, self).__init__()
         self.n_classes = n_classes
         self.in_channels = in_channels
-        self.channels = [64, 128, 256, 512, 1024]
+        self.channels = [16, 32, 64, 128, 256]
 
         self.res1 = ResBlock(self.in_channels, self.channels[0])
         self.maxpool1 = nn.MaxPool2d(kernel_size=2)
@@ -51,26 +59,34 @@ class Unet(nn.Module):
 
         self.up_sample1 = UpConvBlock(self.channels[4], self.channels[3])
         self.up_sample2 = UpConvBlock(self.channels[3], self.channels[2])
+        #print(self.channels[2], self.channels[1])
         self.up_sample3 = UpConvBlock(self.channels[2], self.channels[1])
         self.up_sample4 = UpConvBlock(self.channels[1], self.channels[0])
 
         self.result = nn.Conv2d(self.channels[0], self.n_classes, 1)
 
     def forward(self, x):
+        #print(x.shape, 'shape')
         res1 = self.res1(x)
+        #print(res1.shape, 'res1')
         maxpool1 = self.maxpool1(res1)
         res2 = self.res2(maxpool1)
+        #print(res2.shape, 'res2')
         maxpool2 = self.maxpool2(res2)
         res3 = self.res3(maxpool2)
+        #print(res3.shape, 'res3')
         maxpool3 = self.maxpool3(res3)
         res4 = self.res4(maxpool3)
         maxpool4 = self.maxpool4(res4)
 
         res5 = self.res5(maxpool4)
-
+        #print(res5.shape, 'res5')
+        #print(res4.shape, 'res4')
         up1 = self.up_sample1(res5, res4)
+        #print(up1.shape, 'up1')
         up2 = self.up_sample2(up1, res3)
-        up3 = self.up_sample1(up2, res2)
-        up4 = self.up_sample1(up3, res1)
+        #print(up2.shape, res2.shape, 'up2 - res2')
+        up3 = self.up_sample3(up2, res2)
+        up4 = self.up_sample4(up3, res1)
 
         return self.result(up4)
