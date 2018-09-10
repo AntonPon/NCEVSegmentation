@@ -134,7 +134,7 @@ class cityscapesLoader(data.Dataset):
         return img, lbl
 
     def transform(self, img, lbl):
-        """transform
+        """transformu
 
         :param img:
         :param lbl:
