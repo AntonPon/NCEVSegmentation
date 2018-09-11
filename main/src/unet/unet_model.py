@@ -59,33 +59,25 @@ class Unet(nn.Module):
 
         self.up_sample1 = UpConvBlock(self.channels[4], self.channels[3])
         self.up_sample2 = UpConvBlock(self.channels[3], self.channels[2])
-        #print(self.channels[2], self.channels[1])
         self.up_sample3 = UpConvBlock(self.channels[2], self.channels[1])
         self.up_sample4 = UpConvBlock(self.channels[1], self.channels[0])
 
         self.result = nn.Conv2d(self.channels[0], self.n_classes, 1)
 
     def forward(self, x):
-        #print(x.shape, 'shape')
         res1 = self.res1(x)
-        #print(res1.shape, 'res1')
         maxpool1 = self.maxpool1(res1)
         res2 = self.res2(maxpool1)
-        #print(res2.shape, 'res2')
         maxpool2 = self.maxpool2(res2)
         res3 = self.res3(maxpool2)
-        #print(res3.shape, 'res3')
         maxpool3 = self.maxpool3(res3)
         res4 = self.res4(maxpool3)
         maxpool4 = self.maxpool4(res4)
 
         res5 = self.res5(maxpool4)
-        #print(res5.shape, 'res5')
-        #print(res4.shape, 'res4')
+
         up1 = self.up_sample1(res5, res4)
-        #print(up1.shape, 'up1')
         up2 = self.up_sample2(up1, res3)
-        #print(up2.shape, res2.shape, 'up2 - res2')
         up3 = self.up_sample3(up2, res2)
         up4 = self.up_sample4(up3, res1)
 
