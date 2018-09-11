@@ -30,7 +30,6 @@ class UpConvBlock(nn.Module):
         self.up = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
 
     def forward(self, prev_up, conv_in):
-        #print(self.up, self.in_chab, 'up')
         up_cur = self.up(prev_up)
         resize_input = (up_cur.size(2) - conv_in.size(2)) // 2
         padd = 2 * [resize_input, resize_input]
@@ -62,7 +61,8 @@ class Unet(nn.Module):
         self.up_sample3 = UpConvBlock(self.channels[2], self.channels[1])
         self.up_sample4 = UpConvBlock(self.channels[1], self.channels[0])
 
-        self.result = nn.Conv2d(self.channels[0], self.n_classes, 1)
+        self.result = nn.Sequential(nn.Conv2d(self.channels[0], self.n_classes, 1),
+                                    nn.Softmax2d())
 
     def forward(self, x):
         res1 = self.res1(x)
@@ -80,5 +80,4 @@ class Unet(nn.Module):
         up2 = self.up_sample2(up1, res3)
         up3 = self.up_sample3(up2, res2)
         up4 = self.up_sample4(up3, res1)
-
         return self.result(up4)
