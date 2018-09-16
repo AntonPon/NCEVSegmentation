@@ -65,8 +65,8 @@ def train(agrs=''):
             output = model(images).data.max(1)[1].cpu().numpy()
             ground_truth = labels.data.cpu().numpy()
 
-            label_accuracy_score( ground_truth, output, 19)
-
+            loss_eval += label_accuracy_score( ground_truth, output, 19)
+            l += 1
         print('accuaracy: {}'.format(loss_eval/l))
 
 
