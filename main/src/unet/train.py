@@ -2,20 +2,24 @@ import torch
 import argparse
 import numpy as np
 from torchvision import transforms
+from torch import nn
 
 from main.src.unet.unet_model import Unet
 from main.data.data_loader_implemented import get_data_loader
 from main.src.unet.loss import IoU
-from main.src.unet.accuracy import label_accuracy_score
+from main.src.unet.accuracy import  iou
 
+
+import os
 
 def train(agrs=''):
-    batch_szie = 1
-    img_size = [256, 256]
+    batch_szie = 6
+    img_size = [768, 768]
     worker_num = 8
     cuda_usage = True
 
-    root_data_path = '../../../../../datasets/cityscapes'
+    print(os.getcwd())
+    root_data_path = '../../../data/anpon/cityscapes'
 
     transform = transforms.Compose([transforms.RandomRotation(10),
                                     transforms.RandomHorizontalFlip(),
@@ -32,11 +36,7 @@ def train(agrs=''):
     model = Unet()
     model.to(device)
 
-    #model = torch.nn.DataParallel(model, device_ids=[0])
-    #model.cuda()
-
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e04, weight_decay=5e-4)
-
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-04, weight_decay=5e-4)
     criterion = IoU().to(device)
 
     for epoch in range(0, 100):
@@ -46,27 +46,30 @@ def train(agrs=''):
             # cast data examples to cuda or cpu device
             images = images.to(device)
             labels = labels.to(device)
-
+            
             output = model(images)
-            weights = torch.ones(output.shape[1]).to(device)
             loss = criterion(output, labels)
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             if i % 100 == 0:
-                print(loss.item(), 'dataloss')
-            #here can be logging
+                print(torch.mean(loss).item(), 'dataloss')
+            # here can be logging
+        
         model.eval()
         loss_eval = 0
         l = 0.
-
         for i, (images, labels) in enumerate(val_loader):
-            output = model(images).data.max(1)[1].cpu().numpy()
+            images = images.to(device)
+            labels = labels.to(device)
+            
+            output = model(images).data.cpu().numpy()
             ground_truth = labels.data.cpu().numpy()
 
-            loss_eval += label_accuracy_score( ground_truth, output, 19)
-            l += 1
+            #update(ground_truth, output,loss_eval)
+            loss_eval += iou(output, ground_truth).item()
+            l += batch_szie
         print('accuaracy: {}'.format(loss_eval/l))
 
 
