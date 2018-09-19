@@ -14,7 +14,7 @@ import os
 
 def train(agrs=''):
     batch_szie = 6
-    img_size = [768, 768]
+    img_size = (256, 256)#[768, 768]
     worker_num = 8
     cuda_usage = True
 
@@ -68,7 +68,7 @@ def train(agrs=''):
             ground_truth = labels.data.cpu().numpy()
 
             #update(ground_truth, output,loss_eval)
-            loss_eval += iou(output, ground_truth).item()
+            loss_eval += iou(output, ground_truth, (19, 256, 256)).item()
             l += batch_szie
         print('accuaracy: {}'.format(loss_eval/l))
 

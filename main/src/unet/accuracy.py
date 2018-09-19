@@ -4,7 +4,8 @@ import numpy as np
 def intersect(segment):
     return segment.sum(-1)
 
-def to_categorical(y, num_classes=None, dtype='float32'):
+
+def to_categorical(y, im_size=(19, 256, 256),  num_classes=None, dtype='float32'):
     """Converts a class vector (integers) to binary class matrix.
     E.g. for use with categorical_crossentropy.
     # Arguments
@@ -28,21 +29,17 @@ def to_categorical(y, num_classes=None, dtype='float32'):
     categorical = np.zeros((n, num_classes), dtype=dtype)
     categorical[np.arange(n), y] = 1
     output_shape = input_shape + (num_classes,)
-    categorical = np.reshape(categorical, (19, 768, 768))
+    categorical = np.reshape(categorical, im_size)
     return categorical
 
 
-def iou(segmented, ground_img):
+def iou(segmented, ground_img, im_size=(19, 256, 256)):
     epsilon=1e-6
     diff = 0
-    for segm, gr_im in zip(segmented, ground_img):
-         #print(segm.shape, 'shape')
-         gr_im = to_categorical(gr_im[0], 19)
-         #print(gr_im.shape, 'gr_im')
+    for segm, gr_im in zip(segmented, ground_img, im_size):
+         gr_im = to_categorical(gr_im[0], im_size, 19)
          gr_im = gr_im.reshape((-1))
          segm = segm.reshape((-1))
-         #print(gr_im.shape, 'shape')
-         #print(segm.shape, 'segm')
          inters = intersect(segm * gr_im)
          diff += (inters + epsilon) / (intersect(segm) + intersect(gr_im) - inters + epsilon)
     return diff
