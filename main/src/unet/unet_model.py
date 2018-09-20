@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class ResBlock(nn.Module):
     def __init__(self, in_channels, out_channels, batch_norm=True):
         super(ResBlock, self).__init__()
@@ -21,6 +22,7 @@ class ResBlock(nn.Module):
     def forward(self, x):
         output = self.conv1(x)
         return self.conv2(output)
+
 
 class UpConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels):

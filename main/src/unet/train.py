@@ -1,25 +1,20 @@
 import torch
 import argparse
-import numpy as np
 from torchvision import transforms
-from torch import nn
 
 from main.src.unet.unet_model import Unet
 from main.data.data_loader_implemented import get_data_loader
 from main.src.unet.loss import IoU
-from main.src.unet.accuracy import  iou
+from main.src.unet.accuracy import iou
 
-
-import os
 
 def train(agrs=''):
     batch_szie = 6
-    img_size = (256, 256)#[768, 768]
+    img_size = (256, 256)
     worker_num = 8
     cuda_usage = True
 
-    print(os.getcwd())
-    root_data_path = '../../../data/anpon/cityscapes'
+    root_data_path = '/home/user/Documents/datasets/cityscapes'
 
     transform = transforms.Compose([transforms.RandomRotation(10),
                                     transforms.RandomHorizontalFlip(),
@@ -54,9 +49,9 @@ def train(agrs=''):
             loss.backward()
             optimizer.step()
             if i % 100 == 0:
-                print(torch.mean(loss).item(), 'dataloss')
+                print(loss.item(), 'dataloss')
             # here can be logging
-        
+
         model.eval()
         loss_eval = 0
         l = 0.
@@ -67,8 +62,7 @@ def train(agrs=''):
             output = model(images).data.cpu().numpy()
             ground_truth = labels.data.cpu().numpy()
 
-            #update(ground_truth, output,loss_eval)
-            loss_eval += iou(output, ground_truth, (19, 256, 256)).item()
+            loss_eval += iou(output, ground_truth).item()
             l += batch_szie
         print('accuaracy: {}'.format(loss_eval/l))
 
