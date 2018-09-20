@@ -7,8 +7,6 @@ from torchvision import transforms
 
 from torch.utils import data
 from PIL import Image
-#from ptsemseg.utils import recursive_glob
-#from ptsemseg.augmentations import *
 
 
 class cityscapesLoader(data.Dataset):
@@ -79,13 +77,10 @@ class cityscapesLoader(data.Dataset):
                             'pole', 'traffic_light', 'traffic_sign', 'vegetation', 'terrain', \
                             'sky', 'person', 'rider', 'car', 'truck', 'bus', 'train', \
                             'motorcycle', 'bicycle']
-
         self.ignore_index = 250
         self.class_map = dict(zip(self.valid_classes, range(19)))
-
         if not self.files[split]:
             raise Exception("No files for split=[%s] found in %s" % (split, self.images_base))
-
         print("Found %d %s images" % (len(self.files[split]), split))
 
     def recursive_glob(self, rootdir='.', suffix=''):
@@ -112,6 +107,8 @@ class cityscapesLoader(data.Dataset):
                                 os.path.basename(img_path)[:-15] + 'gtFine_labelIds.png')
 
         img = cv2.imread(img_path)
+        if img is None:
+           print(img_path)
         img = np.array(img, dtype=np.uint8)
 
         lbl = m.imread(lbl_path)
@@ -119,12 +116,11 @@ class cityscapesLoader(data.Dataset):
         if self.augmentations is not None:
             img, lbl = Image.fromarray(img, mode='RGB'), Image.fromarray(lbl, mode='L')
             img = self.augmentations(img)
-            lbl = self.augmentations(lbl)
+            lbl = self.augmentations(lbl).type(torch.LongTensor)
 
         img = img/255.
-
         return img, lbl
-
+    '''
     def transform(self, img, lbl):
         """transform
 
@@ -175,7 +171,7 @@ class cityscapesLoader(data.Dataset):
         rgb[:, :, 1] = g / 255.0
         rgb[:, :, 2] = b / 255.0
         return rgb
-
+    '''
     def encode_segmap(self, mask):
         # Put all void classes to zero
         for _voidc in self.void_classes:
@@ -185,10 +181,12 @@ class cityscapesLoader(data.Dataset):
         return mask
 
 
+
 def get_data_loader(root_data_path, transforms, img_size, batch_size=32, worker_num=8):
     if len(img_size) == 1:
         img_size = 2 * img_size
     print(root_data_path)
+
     dataloader_trn = cityscapesLoader(root_data_path, img_size=img_size, is_transform=True,
                                       augmentations=transforms)
     dataloader_val = cityscapesLoader(root_data_path, img_size=img_size, is_transform=True,

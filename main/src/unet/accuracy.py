@@ -1,10 +1,11 @@
 import numpy as np
+from main.src.unet.lovazs_loss import iou_m
 
 
 def intersect(segment):
     return segment.sum(-1)
 
-
+'''
 def to_categorical(y, im_size=(19, 256, 256),  num_classes=None, dtype='float32'):
     """Converts a class vector (integers) to binary class matrix.
     E.g. for use with categorical_crossentropy.
@@ -31,15 +32,9 @@ def to_categorical(y, im_size=(19, 256, 256),  num_classes=None, dtype='float32'
     output_shape = input_shape + (num_classes,)
     categorical = np.reshape(categorical, im_size)
     return categorical
-
+'''
 
 def iou(segmented, ground_img, im_size=(19, 256, 256)):
     epsilon=1e-6
     diff = 0
-    for segm, gr_im in zip(segmented, ground_img, im_size):
-         gr_im = to_categorical(gr_im[0], im_size, 19)
-         gr_im = gr_im.reshape((-1))
-         segm = segm.reshape((-1))
-         inters = intersect(segm * gr_im)
-         diff += (inters + epsilon) / (intersect(segm) + intersect(gr_im) - inters + epsilon)
-    return diff
+    return iou_m(segmented, ground_img, 19, per_image=True)
