@@ -7,12 +7,8 @@ from torchvision import transforms
 
 from torch.utils import data
 from PIL import Image
-
-
 #from ptsemseg.utils import recursive_glob
 #from ptsemseg.augmentations import *
-
-
 
 
 class cityscapesLoader(data.Dataset):
@@ -124,17 +120,13 @@ class cityscapesLoader(data.Dataset):
             img, lbl = Image.fromarray(img, mode='RGB'), Image.fromarray(lbl, mode='L')
             img = self.augmentations(img)
             lbl = self.augmentations(lbl)
-            #print(type(lbl))
 
-        #if self.is_transform:
-        #    img, lbl = self.transform(img, lbl)
-        tr = transforms.Compose([transforms.Normalize(mean=[73.15835921, 82.90891754, 72.39239876], std=[255., 255., 255.])])
-        img = tr(img)
+        img = img/255.
 
         return img, lbl
 
     def transform(self, img, lbl):
-        """transformu
+        """transform
 
         :param img:
         :param lbl:
@@ -191,8 +183,6 @@ class cityscapesLoader(data.Dataset):
         for _validc in self.valid_classes:
             mask[mask == _validc] = self.class_map[_validc]
         return mask
-
-
 
 
 def get_data_loader(root_data_path, transforms, img_size, batch_size=32, worker_num=8):
