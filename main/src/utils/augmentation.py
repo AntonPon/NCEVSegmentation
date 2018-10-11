@@ -11,12 +11,16 @@ class Compose(object):
     def __init__(self, augmentations):
         self.augmentations = augmentations
 
-    def __call__(self, img, mask):
-        img, mask = Image.fromarray(img, mode='RGB'), Image.fromarray(mask, mode='L')
-        assert img.size == mask.size
+    def __call__(self, img, mask=None):
+        img = Image.fromarray(img, mode='RGB')
+        if mask is not None:
+            mask = Image.fromarray(mask, mode='L')
+            assert img.size == mask.size
         for a in self.augmentations:
             img, mask = a(img, mask)
-        return np.array(img), np.array(mask, dtype=np.uint8)
+        if mask is not None:
+            mask = np.array(mask, dtype=np.uint8)
+        return np.array(img), mask
 
 
 class RandomCrop(object):
@@ -62,9 +66,11 @@ class CenterCrop(object):
 
 
 class RandomHorizontallyFlip(object):
-    def __call__(self, img, mask):
+    def __call__(self, img, mask=None):
         if random.random() < 0.5:
-            return img.transpose(Image.FLIP_LEFT_RIGHT), mask.transpose(Image.FLIP_LEFT_RIGHT)
+            if mask is not None:
+                mask = mask.transpose(Image.FLIP_LEFT_RIGHT)
+            return img.transpose(Image.FLIP_LEFT_RIGHT), mask
         return img, mask
 
 
@@ -134,9 +140,12 @@ class RandomRotate(object):
     def __init__(self, degree):
         self.degree = degree
 
-    def __call__(self, img, mask):
+    def __call__(self, img, mask=None):
         rotate_degree = random.random() * 2 * self.degree - self.degree
-        return img.rotate(rotate_degree, Image.BILINEAR), mask.rotate(rotate_degree, Image.NEAREST)
+        img = img.rotate(rotate_degree, Image.BILINEAR)
+        if mask is not None:
+            mask = mask.rotate(rotate_degree, Image.NEAREST)
+        return img, mask
 
 
 class RandomSized(object):
