@@ -4,14 +4,14 @@ import numpy as np
 import scipy.misc as m
 import cv2
 
-from torch.utils import data
+from torch.utils.data import Dataset, DataLoader
 
 from main.src.utils.util import recursive_glob
 
 
 
 
-class cityscapesLoader(data.Dataset):
+class cityscapesLoader(Dataset):
     """cityscapesLoader
 
     https://www.cityscapes-dataset.com
@@ -112,6 +112,7 @@ class cityscapesLoader(data.Dataset):
         if img is None:
             print(os.getcwd())
             print(img_path)
+
         img = np.array(img, dtype=np.uint8)
         lbl = m.imread(lbl_path)
         lbl = self.encode_segmap(np.array(lbl, dtype=np.uint8))
@@ -156,8 +157,6 @@ class cityscapesLoader(data.Dataset):
 
         return img, lbl
 
-
-
     def encode_segmap(self, mask):
         # Put all void classes to zero
         for _voidc in self.void_classes:
@@ -165,6 +164,7 @@ class cityscapesLoader(data.Dataset):
         for _validc in self.valid_classes:
             mask[mask == _validc] = self.class_map[_validc]
         return mask
+
 
 def get_data_loader(root_data_path, transforms, img_size, batch_size=32, worker_num=8):
     if len(img_size) == 1:
@@ -176,8 +176,8 @@ def get_data_loader(root_data_path, transforms, img_size, batch_size=32, worker_
     dataloader_val = cityscapesLoader(root_data_path, img_size=img_size, is_transform=True,
                                       augmentations=transforms, split='val')
 
-    val_loader = data.DataLoader(dataloader_val, batch_size=batch_size, num_workers=worker_num)
-    train_loader = data.DataLoader(dataloader_trn, batch_size=batch_size, shuffle=True, num_workers=worker_num)
+    val_loader = DataLoader(dataloader_val, batch_size=batch_size, num_workers=worker_num)
+    train_loader = DataLoader(dataloader_trn, batch_size=batch_size, shuffle=True, num_workers=worker_num)
     return val_loader, train_loader
 
 
