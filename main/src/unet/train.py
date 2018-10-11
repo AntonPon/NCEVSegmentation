@@ -15,7 +15,8 @@ def train(agrs=''):
     worker_num = 8
     cuda_usage = True
 
-    root_data_path = '/home/user/Documents/datasets/cityscapes'
+    #root_data_path = '/home/user/Documents/datasets/cityscapes'
+    root_data_path = '/../../../data/anpon/cityscapes'
 
     transform = Compose([RandomRotate(10), RandomHorizontallyFlip()])
     val_loader, train_loader = get_data_loader(root_data_path, transform, img_size, batch_size=batch_szie,
@@ -60,6 +61,7 @@ def train(agrs=''):
             ground_truth = labels.data.cpu().numpy()
 
             running_metrics.update(ground_truth, output)
+            '''
             if epoch % 1 == 0:
                 # if i_val == 0:
                 #    for row in gt[0][507:511]:
@@ -73,7 +75,7 @@ def train(agrs=''):
                     plt.xlabel('ground_truth: {}_{}'.format(epoch, i))
                     plt.savefig('images/epoch:{}_{}.png'.format(epoch, i))
                 plt.close()
-
+            '''
         score, class_iou = running_metrics.get_scores()
         for k, v in score.items():
             print(k, v)
