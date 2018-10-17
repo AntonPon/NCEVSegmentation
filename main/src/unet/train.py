@@ -1,7 +1,6 @@
 import torch
 
-from matplotlib import pyplot as plt
-from main.src.unet.unet_model import Unet
+from main.src.models.unet_model import Unet
 from main.data.data_loader_implemented import get_data_loader, decode_segmap
 from main.src.unet.accuracy import runningScore
 from main.src.loss.cross_entropy_loss import cross_entropy2d
