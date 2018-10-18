@@ -1,6 +1,7 @@
 import torch
 
 from main.src.models.unet_model import Unet
+from main.src.models.nvce_model import NVCE
 from main.data.data_loader_implemented import get_data_loader, decode_segmap
 from main.src.unet.accuracy import runningScore
 from main.src.loss.cross_entropy_loss import cross_entropy2d
@@ -89,4 +90,9 @@ def train(agrs=''):
 
 if __name__ == '__main__':
     #parser = argparse.ArgumentParser(description='unet hyperparameters')
-    train()
+    #train()
+    a = NVCE()
+    print(a)
+    #for el in a.children():
+    #    print(el)
+    #    print('----------------------------------')
