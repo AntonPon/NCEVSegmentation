@@ -50,7 +50,7 @@ def iou_binary(preds, labels, EMPTY=1., ignore=None, per_image=True):
     return 100 * iou
 
 
-def iou(preds, labels, C, EMPTY=1., ignore=None, per_image=False):
+def iou_m(preds, labels, C, EMPTY=1., ignore=None, per_image=False):
     """
     Array of IoU for each (non ignored) class
     """
@@ -69,7 +69,7 @@ def iou(preds, labels, C, EMPTY=1., ignore=None, per_image=False):
                     iou.append(float(intersection) / union)
         ious.append(iou)
     ious = map(mean, zip(*ious)) # mean accross images if per_image
-    return 100 * np.array(ious)
+    return 100 * np.fromiter(ious, dtype=np.float)
 
 
 # --------------------------- BINARY LOSSES ---------------------------
