@@ -27,7 +27,7 @@ def train(agrs=''):
     device = 'cpu'
     if torch.cuda.is_available() and cuda_usage:
         device = 'cuda:1'
-    model = Unet()
+    model = NVCE() #Unet()
     model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-04, weight_decay=5e-4)
@@ -88,11 +88,14 @@ def train(agrs=''):
                      'optimizer_state': optimizer.state_dict(), }
             torch.save(state, "{}_{}_best_model_iou.pkl".format('unet', 'citiscapes'))
 
+from torch import nn
 if __name__ == '__main__':
+
     #parser = argparse.ArgumentParser(description='unet hyperparameters')
-    #train()
-    a = NVCE()
-    print(a)
+    train()
+    #a = NVCE()
+    #print(a)
     #for el in a.children():
     #    print(el)
     #    print('----------------------------------')
+
