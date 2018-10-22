@@ -59,9 +59,10 @@ def train(agrs=''):
     running_metrics = runningScore(19)
     len_trainload = len(train_loader)
     len_valload = len(val_loader)
-    train_loss = 0.
     best_iou = -1
     for epoch in range(0, 100):
+        train_loss = 0.
+
         model.train()
         for i, (images, next_images, labels) in enumerate(train_loader):
             # cast data examples to cuda or cpu device
@@ -71,12 +72,12 @@ def train(agrs=''):
             model(images)
             output = model(images, is_keyframe=False)
             loss = criterion(input=output, target=labels, device=device)
-            train_loss += loss
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            train_loss += loss.item()
             if i % len_trainload == (len_trainload - 1):
-                print("Epoch [%d/%d] Loss: %.4f" % (epoch + 1, 100, loss.item()))
+                print("Epoch [%d/%d] Loss: %.4f" % (epoch + 1, 100, train_loss/len_trainload))
                 writer.add_scalar('epoch_loss', train_loss/len_trainload, epoch)
         # here can be logging
 
