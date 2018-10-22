@@ -76,7 +76,7 @@ class СityscapesLoader(Dataset):
         for el in lister:
             if remove_ls[0] in el or remove_ls[1] in el or remove_ls[2] in el or remove_ls[3] in el:
                 lister.remove(el)
-        self.files[split] = lister[:174]
+        self.files[split] = lister
 
         # self.files[split] = recursive_glob(rootdir=self.images_base, suffix='.png')
 
@@ -121,16 +121,16 @@ class СityscapesLoader(Dataset):
                                 img_path.split(os.sep)[-2],
                                 os.path.basename(img_path)[:-15] + 'gtFine_labelIds.png')
 
-        img_1 = cv2.imread(img_path)
-        img_next_1 = cv2.imread(img_path_next)
-        if img_next_1 is None:
+        img = cv2.imread(img_path)
+        img_next = cv2.imread(img_path_next)
+        if img_next is None:
             print(img_path)
             print(img_path_next, 'break_down')
 
-        img = np.array(img_1, dtype=np.uint8)
-        img_next = np.array(img_next_1, dtype=np.uint8)
-        lbl_1 = m.imread(lbl_path)
-        lbl = self.encode_segmap(np.array(lbl_1, dtype=np.uint8))
+        img = np.array(img, dtype=np.uint8)
+        img_next = np.array(img_next, dtype=np.uint8)
+        lbl = m.imread(lbl_path)
+        lbl = self.encode_segmap(np.array(lbl, dtype=np.uint8))
 
 
         if self.augmentations is not None:
@@ -141,7 +141,7 @@ class СityscapesLoader(Dataset):
             img_next, lbl = self.transform(img_next, lbl)
             img, _ = self.transform(img)
         # return img, img_next, lbl
-        return img_1, img_next_1, lbl_1, img_path, img_path_next, lbl_path
+        return img, img_next, lbl
 
 
     def transform(self, img, lbl=None):
@@ -173,7 +173,7 @@ class СityscapesLoader(Dataset):
             if not np.all(np.unique(lbl[lbl != self.ignore_index]) < self.n_classes):
                 print('after det', classes, np.unique(lbl))
                 raise ValueError("Segmentation map contained invalid class values")
-            lbl = torch.from_numpy(lbl).float()
+            lbl = torch.from_numpy(lbl).long()
         img = torch.from_numpy(img).float()
 
         return img, lbl
@@ -244,13 +244,18 @@ if __name__ == '__main__':
         subfolder_path = os.path.join(root_dir, 'step_{}'.format(step))
         if not os.path.exists(subfolder_path):
             os.mkdir(subfolder_path)
-        dataset = СityscapesLoader('/../../../../data/anpon/cityscapes', add_source='/../../../../data/anpon/cityscapes2/leftImg8bit_sequence'
-                                                                                    '', augmentations=transforms, img_size=(256, 256),
-                                   is_transform=True, step=step)
+        dataset = СityscapesLoader('/../../../../data/anpon/cityscapes', add_source='/..'
+                                                                                    '/../../../data/anpon/cityscapes2/leftImg8bit_sequence'
+                                                                                    , augmentations=transforms, img_size=(256, 256),
+                                   is_transform=True, step=step, split='val')
         val_loader = DataLoader(dataset, batch_size=1, num_workers=2, shuffle=True)
+
+
 
         #for i, key_f, current_f, mask, key_name, current_name, lbl_name in enumerate(val_loader):
         for i, alpha in enumerate(val_loader):
+            print(alpha[0].shape, alpha[1].shape, alpha[2].shape)
+            '''
             key_f = alpha[0][0]
             current_f = alpha[1][0]
             mask = alpha[2][0]
@@ -275,4 +280,21 @@ if __name__ == '__main__':
             plt.savefig(os.path.join(subfolder_path, 'image_{}.png'.format(i)), bbox_inches='tight')
             plt.close()
             if i == 20:
-                break
+                break'''
+
+
+
+
+def get_data_loader(root_data_path, additional_path, transforms, img_size, batch_size=32, worker_num=8, step=1):
+    if len(img_size) == 1:
+        img_size = 2 * img_size
+    print(root_data_path)
+
+    dataloader_trn = СityscapesLoader(root_data_path, additional_path, img_size=img_size, is_transform=True,
+                                      augmentations=transforms, step=step)
+    dataloader_val = СityscapesLoader(root_data_path, additional_path, img_size=img_size, is_transform=True,
+                                      augmentations=transforms, split='val', step=step)
+
+    val_loader = DataLoader(dataloader_val, batch_size=batch_size, num_workers=worker_num)
+    train_loader = DataLoader(dataloader_trn, batch_size=batch_size, shuffle=True, num_workers=worker_num)
+    return val_loader, train_loader
