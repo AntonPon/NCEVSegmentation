@@ -14,3 +14,8 @@ def recursive_glob(rootdir='.', suffix=''):
         for filename in filenames if filename.endswith(suffix)]
     images.sort()
     return images
+
+
+def add_info(writer, epoch, loss=0, miou=0, mode='train'):
+    writer.add_scalar('{}_loss'.format(mode), loss, epoch)
+    writer.add_scalar('{}_miou'.format(mode), miou, epoch)
