@@ -144,6 +144,16 @@ class СityscapesLoader(Dataset):
         return img, img_next, lbl
 
 
+    def encode_segmap(self, mask):
+        # Put all void classes to zero
+        for _voidc in self.void_classes:
+            mask[mask == _voidc] = self.ignore_index
+        for _validc in self.valid_classes:
+            mask[mask == _validc] = self.class_map[_validc]
+            #    print("WARN: resizing labels yielded fewer classes")
+
+        return mask
+
     def transform(self, img, lbl=None):
         """transform
 
@@ -168,8 +178,6 @@ class СityscapesLoader(Dataset):
             lbl = lbl.astype(int)
 
             # if not np.all(classes == np.unique(lbl)):
-            #    print("WARN: resizing labels yielded fewer classes")
-
             if not np.all(np.unique(lbl[lbl != self.ignore_index]) < self.n_classes):
                 print('after det', classes, np.unique(lbl))
                 raise ValueError("Segmentation map contained invalid class values")
@@ -177,14 +185,6 @@ class СityscapesLoader(Dataset):
         img = torch.from_numpy(img).float()
 
         return img, lbl
-
-    def encode_segmap(self, mask):
-        # Put all void classes to zero
-        for _voidc in self.void_classes:
-            mask[mask == _voidc] = self.ignore_index
-        for _validc in self.valid_classes:
-            mask[mask == _validc] = self.class_map[_validc]
-        return mask
 
 
 def decode_segmap(temp, n_classes=19):
@@ -230,7 +230,7 @@ from matplotlib import pyplot as plt
 
 def get_image_id(str_i):
     return '_'.join(str_i.split('/')[-1].split('_')[:3])
-
+"""
 if __name__ == '__main__':
     transforms = Compose([
         RandomHorizontallyFlip(),
@@ -244,10 +244,8 @@ if __name__ == '__main__':
         subfolder_path = os.path.join(root_dir, 'step_{}'.format(step))
         if not os.path.exists(subfolder_path):
             os.mkdir(subfolder_path)
-        dataset = СityscapesLoader('/../../../../data/anpon/cityscapes', add_source='/..'
-                                                                                    '/../../../data/anpon/cityscapes2/leftImg8bit_sequence'
-                                                                                    , augmentations=transforms, img_size=(256, 256),
-                                   is_transform=True, step=step, split='val')
+        dataset = СityscapesLoader('/../../../../data/anpon/cityscapes', add_source='/../../../../data/anpon/cityscapes2/leftImg8bit_sequence',
+                                   augmentations=transforms, img_size=(256, 256), is_transform=True, step=step, split='val')
         val_loader = DataLoader(dataset, batch_size=1, num_workers=2, shuffle=True)
 
 
@@ -282,7 +280,7 @@ if __name__ == '__main__':
             if i == 20:
                 break'''
 
-
+"""
 
 
 def get_data_loader(root_data_path, additional_path, transforms, img_size, batch_size=32, worker_num=8, step=1):
