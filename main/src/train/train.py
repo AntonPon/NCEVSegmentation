@@ -1,42 +1,64 @@
 import torch
 
-from main.src.models.unet_model import Unet
+
+import os
+from main.src.models.fpn_model import FPNSeg
 from main.src.models.nvce_model import NVCE
 from main.data.data_loader_implemented import get_data_loader, decode_segmap
-from main.src.unet.accuracy import runningScore
+from main.src.train.accuracy import runningScore
 from main.src.loss.cross_entropy_loss import cross_entropy2d
-from main.src.utils.augmentation import RandomRotate, RandomHorizontallyFlip, Compose
+from main.src.utils.augmentation import RandomRotate, RandomHorizontallyFlip, Compose, RandomCrop
+from main.src.utils.util import add_info
+
+from tensorboardX import SummaryWriter
 
 
 def train(agrs=''):
-
+    os.environ['CUDA_VISIBLE_DEVICES'] = '3'
     batch_szie = 6
     img_size = (256, 256)
     worker_num = 8
     cuda_usage = True
-
+    epoch_number = 1000
+    experiment_number = 'fpn_1'
     #root_data_path = '/home/user/Documents/datasets/cityscapes'
     root_data_path = '/../../../data/anpon/cityscapes'
+    model_name = 'fpn'
+
+    save_dir_root = os.path.join(os.path.dirname(os.path.abspath(__file__)))
+    save_dir_path = os.path.join(save_dir_root, 'results', 'experiment_{}'.format(experiment_number))
+    writer = SummaryWriter(log_dir=save_dir_path)
+
 
     transform = Compose([RandomRotate(10), RandomHorizontallyFlip()])
     val_loader, train_loader = get_data_loader(root_data_path, transform, img_size, batch_size=batch_szie,
                                                worker_num=worker_num)
 
-    val_decode_segmap = decode_segmap
+    #val_decode_segmap = decode_segmap
+
+    train_data_len = len(train_loader)
+    val_data_len = len(val_loader)
 
     device = 'cpu'
     if torch.cuda.is_available() and cuda_usage:
-        device = 'cuda:1'
-    model = NVCE() #Unet()
+        device = 'cuda:0'
+    model = FPNSeg(num_classes=19)
     model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-04, weight_decay=5e-4)
     criterion = cross_entropy2d
     # Setup Metrics
-    running_metrics = runningScore(19)
+    running_metrics_val = runningScore(19)
+    running_metrics_train = runningScore(19)
 
-    for epoch in range(0, 100):
-        model.train()
+
+    best_iou = -1
+    for epoch in range(0, epoch_number):
+        #.train()
+        #train_loss = 0.
+
+        train_loss, running_metrics_train = train_net(train_loader, model, device, running_metrics_train, criterion, optimizer)
+        '''
         for i, (images, labels) in enumerate(train_loader):
 
             # cast data examples to cuda or cpu device
@@ -46,56 +68,94 @@ def train(agrs=''):
             output = model(images)
             loss = criterion(input=output, target=labels, device=device)
 
+            running_metrics_train.update(labels.data.cpu.numpy(), output.data.max(1)[1].cpu().numpy())
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            if (i + 1) % 20 == 0:
-                print("Epoch [%d/%d] Loss: %.4f" % (epoch+1, 100, loss.item()))
-        # here can be logging
-        model.eval()
+
+            train_loss += loss.item()
+        '''
+        score_train, _ = running_metrics_train.get_scores()
+        running_metrics_train.reset()
+        add_info(writer, epoch, train_loss/train_data_len, score_train['Mean IoU : \t'])
+
+        #model.eval()
+        #val_loss = 0.
+        '''
         for i, (images, labels) in enumerate(val_loader):
             images = images.to(device)
             labels = labels.to(device)
-            
-            output = model(images).data.cpu().numpy()
-            ground_truth = labels.data.cpu().numpy()
 
-            running_metrics.update(ground_truth, output)
-            '''
-            if epoch % 1 == 0:
-                # if i_val == 0:
-                #    for row in gt[0][507:511]:
-                #        print(row[100:250])
-                for i_v in range(ground_truth.shape[0]):
-                    plt.subplot(121)
-                    plt.imshow(val_decode_segmap(output[i_v]))
-                    plt.xlabel('predicted: {}_{}'.format(epoch, i))
-                    plt.subplot(122)
-                    plt.imshow(val_decode_segmap(ground_truth[i_v]))
-                    plt.xlabel('ground_truth: {}_{}'.format(epoch, i))
-                    plt.savefig('images/epoch:{}_{}.png'.format(epoch, i))
-                plt.close()
-            '''
-        score, class_iou = running_metrics.get_scores()
-        for k, v in score.items():
-            print(k, v)
-        running_metrics.reset()
+            output = model(images)
+            loss = criterion(input=output, target=labels, device=device)
+
+            output = output.data.max(1)[1].cpu().numpy()
+            ground_truth = labels.data.cpu().numpy()
+            val_loss += loss.item()
+
+            running_metrics_val.update(ground_truth, output)
+        '''
+
+        val_loss, running_metrics_val = val_net(val_loader, model, device, running_metrics_val, criterion)
+
+        score, class_iou = running_metrics_val.get_scores()
+        running_metrics_val.reset()
+        add_info(writer, epoch, loss=val_loss/val_data_len,  miou=score['Mean IoU : \t'], model='val')
 
         if score['Mean IoU : \t'] >= best_iou:
             best_iou = score['Mean IoU : \t']
-            state = {'epoch': epoch + 1,
-                     'model_state': model.state_dict(),
-                     'optimizer_state': optimizer.state_dict(), }
-            torch.save(state, "{}_{}_best_model_iou.pkl".format('unet', 'citiscapes'))
+            save_model(epoch, model.state_dict(), optimizer.state_dict(), model_name)
 
-from torch import nn
+
+def train_net(train_loader, model,  device, metrics, criterion, optimizer):
+    model.train()
+    train_loss = 0.
+    for i, (images, labels) in enumerate(train_loader):
+        # cast data examples to cuda or cpu device
+        images = images.to(device)
+        labels = labels.to(device)
+
+        output = model(images)
+        loss = criterion(input=output, target=labels, device=device)
+
+        metrics.update(labels.data.cpu.numpy(), output.data.max(1)[1].cpu().numpy())
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        train_loss += loss.item()
+
+    return (train_loss, metrics)
+
+
+def val_net(val_loader, model,  device, metrics, criterion):
+    model.eval()
+    val_loss = 0.
+
+    with torch.no_grad():
+        for i, (images, labels) in enumerate(val_loader):
+            images = images.to(device)
+            labels = labels.to(device)
+
+            output = model(images)
+            loss = criterion(input=output, target=labels, device=device)
+
+            output = output.data.max(1)[1].cpu().numpy()
+            ground_truth = labels.data.cpu().numpy()
+            val_loss += loss.item()
+
+            metrics.update(ground_truth, output)
+    return (val_loss, metrics)
+
+def save_model(epoch, model_state, optimizer_state, model='fpn', dataset='cityscapes'):
+    state = {'epoch': epoch + 1,
+             'model_state': model_state,
+             'optimizer_state': optimizer_state, }
+    torch.save(state, "{}_{}_best_model_iou.pkl".format(model, dataset))
+
+
 if __name__ == '__main__':
 
-    #parser = argparse.ArgumentParser(description='unet hyperparameters')
+    #parser = argparse.ArgumentParser(description='train hyperparameters')
     train()
-    #a = NVCE()
-    #print(a)
-    #for el in a.children():
-    #    print(el)
-    #    print('----------------------------------')
 
