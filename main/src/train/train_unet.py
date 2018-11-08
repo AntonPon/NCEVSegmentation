@@ -3,7 +3,7 @@ import torch
 from main.src.models.unet_model import Unet
 from main.src.models.nvce_model import NVCE
 from main.data.data_loader_implemented import get_data_loader, decode_segmap
-from main.src.unet.accuracy import runningScore
+from main.src.train.accuracy import runningScore
 from main.src.loss.cross_entropy_loss import cross_entropy2d
 from main.src.utils.augmentation import RandomRotate, RandomHorizontallyFlip, Compose
 
@@ -77,6 +77,7 @@ def train_unet(train_loader, model, criterion, optimizer, epoch, device):
         if (i + 1) % 20 == 0:
             print("Epoch [%d/%d] Loss: %.4f" % (epoch + 1, 100, loss.item()))
 
+
 def eval_unet(val_loader, model, metrics, device):
     model.eval()
 
@@ -91,7 +92,7 @@ def eval_unet(val_loader, model, metrics, device):
             metrics.update(ground_truth, output)
 
 
-def save_model(epoch, model_state, optimizer_state, model='unet', dataset='cityscapes'):
+def save_model(epoch, model_state, optimizer_state, model='train', dataset='cityscapes'):
     state = {'epoch': epoch + 1,
              'model_state': model_state,
              'optimizer_state': optimizer_state, }
@@ -101,6 +102,6 @@ def save_model(epoch, model_state, optimizer_state, model='unet', dataset='citys
 
 
 if __name__ == '__main__':
-    #parser = argparse.ArgumentParser(description='unet hyperparameters')
+    #parser = argparse.ArgumentParser(description='train hyperparameters')
     train()
 
