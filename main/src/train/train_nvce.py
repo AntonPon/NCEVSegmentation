@@ -3,7 +3,7 @@ import torch
 from main.src.models.unet_model import Unet
 from main.src.models.nvce_model import NVCE
 from main.data.cityscapes_loader import get_data_loader, decode_segmap
-from main.src.unet.accuracy import runningScore
+from main.src.train.accuracy import runningScore
 from main.src.loss.cross_entropy_loss import cross_entropy2d
 from main.src.utils.augmentation import RandomRotate, RandomHorizontallyFlip, Compose
 from torch.nn import DataParallel
@@ -125,10 +125,10 @@ def train(agrs=''):
             state = {'epoch': epoch + 1,
                      'model_state': model.state_dict(),
                      'optimizer_state': optimizer.state_dict(), }
-            torch.save(state, "{}_{}_best_model_nvce.pkl".format('unet', 'cityscapes'))
+            torch.save(state, "{}_{}_best_model_nvce.pkl".format('train', 'cityscapes'))
     writer.close()
 
 
 if __name__ == '__main__':
-    # parser = argparse.ArgumentParser(description='unet hyperparameters')
+    # parser = argparse.ArgumentParser(description='train hyperparameters')
     train()
