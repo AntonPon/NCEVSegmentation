@@ -16,7 +16,7 @@ class FPNSegHead(nn.Module):
         x = nn.functional.relu(self.block1(x), inplace=True)
         return x
 
-
+"""
 class FPNSeg(nn.Module):
 
     def __init__(self, num_classes, num_filters=128, num_filters_fpn=256, pretrained=True):
@@ -64,13 +64,13 @@ class FPNSeg(nn.Module):
 
         final = self.final(smoothed)
 
-
         return {'mask': final}
+"""
 
 
 class FPN(nn.Module):
 
-    def __init__(self, num_filters=256, pretrained=True):
+    def __init__(self, num_classes, num_filters=256,   num_filters_seg=128, pretrained=True):
         """Creates an `FPN` instance for feature extraction.
         Args:
           num_filters: the number of filters in each output pyramid level
@@ -100,6 +100,25 @@ class FPN(nn.Module):
         self.lateral2 = nn.Conv2d(512, num_filters, kernel_size=1, bias=False)
         self.lateral1 = nn.Conv2d(256, num_filters, kernel_size=1, bias=False)
         self.lateral0 = nn.Conv2d(64, num_filters // 2, kernel_size=1, bias=False)
+
+        self.head1 = FPNSegHead(num_filters, num_filters_seg, num_filters_seg)
+        self.head2 = FPNSegHead(num_filters, num_filters_seg, num_filters_seg)
+        self.head3 = FPNSegHead(num_filters, num_filters_seg, num_filters_seg)
+        self.head4 = FPNSegHead(num_filters, num_filters_seg, num_filters_seg)
+
+        self.smooth = nn.Sequential(
+            nn.Conv2d(4 * num_filters_seg, num_filters_seg, kernel_size=3, padding=1),
+            nn.BatchNorm2d(num_filters_seg),
+            nn.ReLU(),
+        )
+
+        self.smooth2 = nn.Sequential(
+            nn.Conv2d(num_filters_seg, num_filters_seg // 2, kernel_size=3, padding=1),
+            nn.BatchNorm2d(num_filters_seg // 2),
+            nn.ReLU(),
+        )
+
+        self.final = nn.Conv2d(num_filters_seg // 2, num_classes, kernel_size=3, padding=1)
 
 
 
@@ -137,4 +156,18 @@ class FPN(nn.Module):
         map2 = lateral2 + nn.functional.upsample(map3, scale_factor=2, mode="nearest")
         map1 = lateral1 + nn.functional.upsample(map2, scale_factor=2, mode="nearest")
 
-        return lateral0, map1, map2, map3, map4
+        map0 = lateral0
+
+        map4 = nn.functional.upsample(self.head4(map4), scale_factor=8, mode="nearest")
+        map3 = nn.functional.upsample(self.head3(map3), scale_factor=4, mode="nearest")
+        map2 = nn.functional.upsample(self.head2(map2), scale_factor=2, mode="nearest")
+        map1 = nn.functional.upsample(self.head1(map1), scale_factor=1, mode="nearest")
+
+        smoothed = self.smooth(torch.cat([map4, map3, map2, map1], dim=1))
+        smoothed = nn.functional.upsample(smoothed, scale_factor=2, mode="nearest")
+        smoothed = self.smooth2(smoothed + map0)
+        smoothed = nn.functional.upsample(smoothed, scale_factor=2, mode="nearest")
+
+        final = self.final(smoothed)
+
+        return final
