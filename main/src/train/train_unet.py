@@ -21,8 +21,6 @@ def train(agrs=''):
     val_loader, train_loader = get_data_loader(root_data_path, transform, img_size, batch_size=batch_szie,
                                                worker_num=worker_num)
 
-    val_decode_segmap = decode_segmap
-
     device = 'cpu'
     if torch.cuda.is_available() and cuda_usage:
         device = 'cuda:1'
@@ -37,22 +35,6 @@ def train(agrs=''):
     for epoch in range(0, 100):
         train_unet(train_loader, model, criterion, optimizer, epoch, device)
         eval_unet(val_loader, model, running_metrics, device)
-        '''
-            if epoch % 1 == 0:
-                # if i_val == 0:
-                #    for row in gt[0][507:511]:
-                #        print(row[100:250])
-                for i_v in range(ground_truth.shape[0]):
-                    plt.subplot(121)
-                    plt.imshow(val_decode_segmap(output[i_v]))
-                    plt.xlabel('predicted: {}_{}'.format(epoch, i))
-                    plt.subplot(122)
-                    plt.imshow(val_decode_segmap(ground_truth[i_v]))
-                    plt.xlabel('ground_truth: {}_{}'.format(epoch, i))
-                    plt.savefig('images/epoch:{}_{}.png'.format(epoch, i))
-                plt.close()
-            
-            '''
         score, class_iou = running_metrics.get_scores()
         for k, v in score.items():
             print(k, v)
