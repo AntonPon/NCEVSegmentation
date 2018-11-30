@@ -11,19 +11,19 @@ from main.src.utils.augmentation import RandomRotate, RandomHorizontallyFlip, Co
 from main.src.utils.util import add_info, save_model
 
 from tensorboardX import SummaryWriter
-
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 def train(agrs=''):
-    os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+
     batch_szie = 8
-    img_size = (512, 512)
+    img_size = (256, 256)
     worker_num = 2
     cuda_usage = True
     epoch_number = 1000
-    experiment_number = 'fpn_3'
+    experiment_number = 'fpn_4_256_256_imgsize'
     #root_data_path = '/home/user/Documents/datasets/cityscapes'
     root_data_path = '/../../../data/anpon/cityscapes'
-    model_name = 'fpn_bold_rewrite_plus'
+    model_name = 'fpn_bold_rewrite_plus_256_256_imsize'
 
     save_dir_root = os.path.join(os.path.dirname(os.path.abspath(__file__)))
     save_dir_path = os.path.join(save_dir_root, 'results', 'experiment_{}'.format(experiment_number))
@@ -53,51 +53,13 @@ def train(agrs=''):
 
     best_iou = -1
     for epoch in range(0, epoch_number):
-        #.train()
-        #train_loss = 0.
-
         train_loss, running_metrics_train = train_net(train_loader, model, device, running_metrics_train, criterion, optimizer)
-        '''
-        for i, (images, labels) in enumerate(train_loader):
-
-            # cast data examples to cuda or cpu device
-            images = images.to(device)
-            labels = labels.to(device)
-            
-            output = model(images)
-            loss = criterion(input=output, target=labels, device=device)
-
-            running_metrics_train.update(labels.data.cpu().numpy(), output.data.max(1)[1].cpu().numpy())
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            train_loss += loss.item()
-        '''
         score_train, _ = running_metrics_train.get_scores()
         running_metrics_train.reset()
         print('adding info about train process')
         add_info(writer, epoch, train_loss/train_data_len, score_train['Mean IoU : \t'])
 
-        #model.eval()
-        #val_loss = 0.
-        '''
-        for i, (images, labels) in enumerate(val_loader):
-            images = images.to(device)
-            labels = labels.to(device)
-
-            output = model(images)
-            loss = criterion(input=output, target=labels, device=device)
-
-            output = output.data.max(1)[1].cpu().numpy()
-            ground_truth = labels.data.cpu().numpy()
-            val_loss += loss.item()
-
-            running_metrics_val.update(ground_truth, output)
-        '''
-
         val_loss, running_metrics_val = val_net(val_loader, model, device, running_metrics_val, criterion)
-
         score, class_iou = running_metrics_val.get_scores()
         running_metrics_val.reset()
         add_info(writer, epoch, loss=val_loss/val_data_len,  miou=score['Mean IoU : \t'], mode='val')
