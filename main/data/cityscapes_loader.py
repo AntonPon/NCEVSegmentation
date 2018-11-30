@@ -76,6 +76,7 @@ class СityscapesLoader(Dataset):
         for el in lister:
             if remove_ls[0] in el or remove_ls[1] in el or remove_ls[2] in el or remove_ls[3] in el:
                 lister.remove(el)
+
         self.files[split] = lister
 
         # self.files[split] = recursive_glob(rootdir=self.images_base, suffix='.png')
@@ -115,33 +116,34 @@ class СityscapesLoader(Dataset):
         :param index:
         """
         img_path = self.files[self.split][index].rstrip()
+        distance = np.random.randint(1, 11)  # self.step
 
-        img_path_next = self.get_prev_img(img_path, self.step, self.add_source, self.split)
+        img_path_prev = self.get_prev_img(img_path, distance, self.add_source, self.split)
         lbl_path = os.path.join(self.annotations_base,
                                 img_path.split(os.sep)[-2],
                                 os.path.basename(img_path)[:-15] + 'gtFine_labelIds.png')
 
         img = cv2.imread(img_path)
-        img_next = cv2.imread(img_path_next)
-        if img_next is None:
+        img_prev = cv2.imread(img_path_prev)
+        if img_prev is None or img is None:
             print(img_path)
-            print(img_path_next, 'break_down')
+            print(img_path_prev, 'break_down')
 
         img = np.array(img, dtype=np.uint8)
-        img_next = np.array(img_next, dtype=np.uint8)
+        img_prev = np.array(img_prev, dtype=np.uint8)
         lbl = m.imread(lbl_path)
         lbl = self.encode_segmap(np.array(lbl, dtype=np.uint8))
 
 
         if self.augmentations is not None:
-            img_next, lbl = self.augmentations(img_next, lbl)
-            img, _ = self.augmentations(img)
+            img_prev, _ = self.augmentations(img_prev)
+            img, lbl = self.augmentations(img, lbl)
 
         if self.is_transform:
-            img_next, lbl = self.transform(img_next, lbl)
-            img, _ = self.transform(img)
+            img_prev, _ = self.transform(img_prev)
+            img, lbl = self.transform(img, lbl)
         # return img, img_next, lbl
-        return img, img_next, lbl
+        return (img, img_prev, lbl, distance)
 
 
     def encode_segmap(self, mask):
