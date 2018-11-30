@@ -5,12 +5,14 @@ import os
 import cv2
 import torch
 import numpy as np
-from main.src.models.nvce_model import NVCE
-from main.src.models.unet_model import Unet
+# from main.src.models.nvce_model import NVCE
+# from main.src.models.unet_model import Unet
+from main.src.models.fpn_model import FPN
+from main.src.models.nvce_fpn_model import NVCE_FPN
 from main.src.utils.util import recursive_glob
 
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 class iterate_frames(object):
 
@@ -115,48 +117,44 @@ def save_mask(path_folder, mask, mask_unet, input, frame_number):
     fig = plt.figure()
     plt.subplot(131)
     plt.imshow(output_unet)
-    #cv2.imwrite(os.path.join(path_folder, 'img_{}.png'.format(frame_number)), output)
+    plt.xlabel('fpn')
     plt.subplot(132)
     plt.imshow(output)
+    plt.xlabel('nvce_fpn')
     plt.subplot(133)
     plt.imshow(input)
+    plt.xlabel('input')
     plt.savefig(os.path.join(path_folder, '{}.png'.format(frame_number)))
     plt.close(fig)
 
 
+def get_prev_img(img_path, distance, additional_path, split):
+    path_parts = img_path.split('/')
+    elements = path_parts[-1].split('_')
+    prev_index = str(int(elements[-2]) - distance)
+    fill_zero = (6 - len(prev_index)) * '0'
+    elements[-2] = '{}{}'.format(fill_zero, prev_index)
+
+    return os.path.join(additional_path, split, elements[0], '_'.join(elements))
 
 
 
 if __name__ == '__main__':
     save_dir_root = os.path.join(os.path.dirname(os.path.abspath(__file__)))
     save_dir_root = os.path.join(save_dir_root, '..', '..')
-    path_to_model = os.path.join(save_dir_root, 'unet_cityscapes_best_model_nvce.pkl')
-    path_to_unet = os.path.join(save_dir_root, 'main', 'src', 'train', 'unet_cityscapes_best_model_iou_3.pkl')
+    path_to_model = os.path.join(save_dir_root, 'fpn_loss_cityscapes_alpha_0_3_distance_random_overfeat_model_nvce.pkl')
+    path_to_unet = os.path.join(save_dir_root, 'fpn_bold_rewrite_cityscapes_best_model_iou.pkl')
     save_path = os.path.join(save_dir_root, '../../../data/anpon/video')
-
-    data_root = os.path.join(save_dir_root, '../../../data/anpon/cityscapes2/leftImg8bit_sequence/')
-    print(data_root)
-    folder_type = 'val'
-    city = 'berlin'
-    for i in iterate_frames(data_root, 10):
-        print(i)
-
-'''
-if __name__ == '__main__':
-    save_dir_root = os.path.join(os.path.dirname(os.path.abspath(__file__)))
-    save_dir_root = os.path.join(save_dir_root, '..', '..')
-    path_to_model = os.path.join(save_dir_root, 'unet_cityscapes_best_model_nvce.pkl')
-    path_to_unet = os.path.join(save_dir_root, 'main', 'src', 'train', 'unet_cityscapes_best_model_iou_3.pkl')
-    save_path = os.path.join(save_dir_root, '../../../data/anpon/video')
-
-    data_root = os.path.join(save_dir_root, '../../../data/anpon/cityscapes2/leftImg8bit_sequence/')
-    folder_type = 'val'
-    city = 'berlin'
-    start_from = 1342
+    start_from = 0
+    data_root = os.path.join(save_dir_root, '../../../data/anpon/cityscapes2/leftImg8bit_sequence/train')
+    #data_root = os.path.join(save_dir_root, '../../../data/anpon/cityscapes/leftImg8bit/train')
+    folder_type = 'train'
+    city = 'aachen'
     images = recursive_glob(data_root)
-    images = images[: 1000]
-    model_unet = torch.nn.DataParallel(Unet())
-    model = NVCE(torch.nn.DataParallel(Unet()))
+    images = images[: 500]
+    print(images[:3])
+    model_unet = FPN(num_classes=19) # torch.nn.DataParallel(Unet())
+    model = NVCE_FPN() # NVCE(torch.nn.DataParallel(Unet()))
 
     if os.path.isfile(path_to_model):
         checkpoint = torch.load(path_to_model)
@@ -168,24 +166,83 @@ if __name__ == '__main__':
     if os.path.isfile(path_to_unet):
         checkpoint = torch.load(path_to_unet)
         model_unet.load_state_dict(checkpoint['model_state'])
-        print('model unet was uploaded')
+        print('model fpn was uploaded')
     else:
         print(path_to_unet + ' was not found')
 
     device = 'cuda:0'
+    model.to(device)
+    model_unet.to(device)
     model.eval()
     model_unet.eval()
     with torch.no_grad():
         for i, image_path in enumerate(images):
             img = cv2.imread(image_path)
-            image = prepare_image(img)
+            image = prepare_image(img, (512, 512))
             image = image.to(device)
-            output = None
+            output = None # model(image)
             output_unet = model_unet(image)
-            if (i + start_from) % 2 == 0:
+            if (i) % 2 == 0:
                 output = model(image)
             else:
                 output = model(image, False)
-            save_mask(save_path, output, output_unet, img, i + start_from)
-            print('{} out of {}'.format(i + start_from, len(images)))
+            save_mask(save_path, output, output_unet, img, i)
+            print('{} out of {}'.format(i, len(images)))
+
+'''
+import time
+def speed_nvce():
+    save_dir_root = os.path.join(os.path.dirname(os.path.abspath(__file__)))
+    save_dir_root = os.path.join(save_dir_root, '..', '..')
+    path_to_model = os.path.join(save_dir_root, 'fpn_loss_cityscapes_alpha_0.2_distance_random_model_nvce.pkl')
+    path_to_unet = os.path.join(save_dir_root, 'fpn_bold_rewrite_cityscapes_best_model_iou.pkl')
+
+    data_root = os.path.join(save_dir_root, '../../../data/anpon/cityscapes2/leftImg8bit_sequence/')
+    images = recursive_glob(data_root)
+    images = images[: 1000]
+    model_unet = load_network(FPN(num_classes=19), path_to_unet)  # torch.nn.DataParallel(Unet())
+    model = load_network(NVCE_FPN(), path_to_model)# NVCE(torch.nn.DataParallel(Unet()))
+    print('count_time for nvce: {}'.format(count_time(model, images)))
+    print('count_time for fpn: {}'.format(count_time(model_unet, images, True)))
+
+
+def load_network(network, path_to_load):
+    model = network
+    if os.path.isfile(path_to_load):
+        checkpoint = torch.load(path_to_load)
+        model.load_state_dict(checkpoint['model_state'])
+        print('model fpn was uploaded')
+    else:
+        print(path_to_load + ' was not found')
+    return model
+
+
+def count_time(model, data=None, nvce=False):
+    device = 'cuda:0'
+    model.to(device)
+    model.eval()
+    time_count = 0
+    data_img = list()
+    for path_im in data:
+        img = cv2.imread(path_im)
+        image = prepare_image(img, (512, 512))
+        data_img.append(image)
+    print('start estimated time')
+    with torch.no_grad():
+        for i, image_r in enumerate(data_img):
+            image = image_r.to(device)
+            start = time.time()
+            if i % 2 == 0 or nvce:
+                output = model(image)
+            elif not nvce:
+                output = model(image, False)
+            end_t = time.time()
+            time_count += end_t - start
+            print('{}_{}'.format(i, end_t - start))
+    print('end estimated time')
+    return time_count
+
+
+if __name__ == '__main__':
+    speed_nvce()
 '''
