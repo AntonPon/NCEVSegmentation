@@ -39,7 +39,7 @@ class NVCE_FPN(torch.nn.Module):
 
         self.final = children_layes[21]
 
-        self.enc3_key = None
+        # self.enc3_key = None
         self.enc4_key = None
 
 
@@ -52,15 +52,19 @@ class NVCE_FPN(torch.nn.Module):
 
         enc2 = self.enc2(tr1)
         tr2 = self.tr2(enc2)
-        if is_keyframe:
-            self.enc3_key = self.enc3(tr2)
-            tr3 = self.tr3(self.enc3_key)
 
+        enc3 = self.enc3(tr2)
+        tr3 = self.tr3(enc3)
+
+        if is_keyframe:
             self.enc4_key = self.enc4(tr3)
             self.enc4_key = self.norm(self.enc4_key)
+        else:
+            self.enc4_key = self.enc4_key.detach()
 
+        print(self.enc4_key.requires_grad)
         lateral4 = self.lateral4(self.enc4_key)
-        lateral3 = self.lateral3(self.enc3_key)
+        lateral3 = self.lateral3(enc3)
         lateral2 = self.lateral2(enc2)
         lateral1 = self.lateral1(enc1)
         lateral0 = self.lateral0(enc0)
