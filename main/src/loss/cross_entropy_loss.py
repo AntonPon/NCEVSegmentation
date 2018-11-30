@@ -31,17 +31,18 @@ def cross_entropy2d(input, target, weight=None, size_average=True, device='cpu')
     elif h != ht and w != wt:
         raise Exception("Only support upsampling")
     """
-    log_p = F.log_softmax(input, dim=1)
-    log_p = log_p.transpose(1, 2).transpose(2, 3).contiguous().view(-1, c)
-    log_p = log_p[target.view(-1, 1).repeat(1, c) >= 0]
-    log_p = log_p.view(-1, c)
+    log_p1 = F.log_softmax(input, dim=1)
+    #log_p = log_p1.transpose(1, 2).transpose(2, 3).contiguous().view(-1, c)
+    #log_p = log_p[target.view(-1, 1).repeat(1, c) >= 0]
+    #log_p = log_p.view(-1, c)
 
     mask = target >= 0
-
-    target = target[mask]
-
-    loss = F.nll_loss(log_p, target, ignore_index=250,
+    target1 = target[mask]
+    #loss = F.nll_loss(log_p, target1, ignore_index=250,
+    #                  weight=weight, size_average=False)
+    loss = F.nll_loss(log_p1, target, ignore_index=250,
                       weight=weight, size_average=False)
+
     # print(loss.item())
     if size_average:
         type_n = torch.cuda.FloatTensor
