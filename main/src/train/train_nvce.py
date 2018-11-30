@@ -9,26 +9,24 @@ from main.data.cityscapes_loader import get_data_loader, decode_segmap
 from main.src.train.accuracy import runningScore
 from main.src.loss.cross_entropy_loss import cross_entropy2d
 from main.src.utils.augmentation import RandomRotate, RandomHorizontallyFlip, Compose
-from torch.nn import DataParallel
 from tensorboardX import SummaryWriter
-from matplotlib import pyplot as plt
 import os
 import sys
 
 print('python version is: {}'.format(sys.version))
 
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 def train(agrs=''):
 
-    batch_szie = 4
+    batch_szie = 3
     img_size = (512, 512)
-    worker_num = 2
+    worker_num = 1
     cuda_usage = True
     epoch_number = 1000
-    alpha = 0.2
-    distance_type = 'random'
-    experiment_number = 'fpn_with_loss_{}_distance_{}'.format('random_loss_delete', distance_type)
+    alpha = 0.3
+    distance_type = 'triple_random_detach'
+    experiment_number = 'fpn_with_loss_{}_distance_{}'.format('random_triple_loss_1layer', distance_type)
     device = 'cpu'
     if torch.cuda.is_available() and cuda_usage:
         device = 'cuda:0'
@@ -68,6 +66,7 @@ def train(agrs=''):
         print('model nvce has been uploaded')
     else:
         print('the nvce model path is not found')
+    # model = torch.nn.DataParallel(model)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-04, weight_decay=5e-4)
     # Setup Metrics
     criterion = cross_entropy2d
@@ -80,8 +79,12 @@ def train(agrs=''):
     len_valload = len(val_loader)
     best_iou = -1
 
+    #for param in pre_trained.parameters():
+    #    param.requires_grad = False
+
     for epoch in range(0, epoch_number):
         model.train()
+        pre_trained.eval()
         train_loss = 0.
         for i, (images, prev_images, labels, dst) in enumerate(train_loader):
             # cast data examples to cuda or cpu device
@@ -90,14 +93,15 @@ def train(agrs=''):
             labels = labels.to(device)
 
             output_key = model(images)
-            model(prev_images)
+            output_key_fpn = pre_trained(prev_images).data.max(1)[1]
+
+            output_prev = model(prev_images)
             output = model(images, is_keyframe=False)
 
-            #alpha = 0.4#get_alpha(dst)
-
-
+            # alpha = 0.4#get_alpha(dst)
             loss = alpha * criterion(input=output, target=labels, device=device) + \
-                   (1 - alpha) * criterion(input=output_key, target=labels, device=device)
+                   (1 - alpha)/2 * (criterion(input=output_key, target=labels, device=device) +
+                                  criterion(input=output_prev, target=output_key_fpn, device=device))
 
             optimizer.zero_grad()
             loss.backward()
@@ -157,11 +161,13 @@ def train(agrs=''):
         writer.add_scalar('miou/val_key_frame', score_key['Mean IoU : \t'], epoch)
 
         if score_key['Mean IoU : \t'] >= best_iou:
-            best_iou = score['Mean IoU : \t']
+        #if ((1 - alpha) * score_key_train['Mean IoU : \t'] + alpha * score_train['Mean IoU : \t']) >= best_iou:
+            #best_iou = score['Mean IoU : \t']
+            best_iou = (1 - alpha) * score_key_train['Mean IoU : \t'] + alpha * score_train['Mean IoU : \t']
             state = {'epoch': epoch + 1,
                      'model_state': model.state_dict(),
                      'optimizer_state': optimizer.state_dict(), }
-            torch.save(state, "{}_{}_alpha_{}_distance_{}_model_nvce.pkl".format('fpn_loss', 'cityscapes', alpha, distance_type))
+            torch.save(state, "../../../data/anpon/snapshots_masterth/{}_{}_alpha_{}_distance_{}_model_nvce.pkl".format('fpn_loss', 'cityscapes', '0_3', distance_type))
     writer.close()
 
 
