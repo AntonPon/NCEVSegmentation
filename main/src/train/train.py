@@ -16,14 +16,14 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 def train(agrs=''):
 
     batch_szie = 8
-    img_size = (256, 256)
+    img_size = (512, 512)
     worker_num = 2
     cuda_usage = True
     epoch_number = 1000
-    experiment_number = 'fpn_4_256_256_imgsize'
+    experiment_number = 'fpn_4_{}_imgsize'.format(img_size[0])
     #root_data_path = '/home/user/Documents/datasets/cityscapes'
     root_data_path = '/../../../data/anpon/cityscapes'
-    model_name = 'fpn_bold_rewrite_plus_256_256_imsize'
+    model_name = 'fpn_bold_rewrite_plus_{}_imsize'.format(img_size[0])
 
     save_dir_root = os.path.join(os.path.dirname(os.path.abspath(__file__)))
     save_dir_path = os.path.join(save_dir_root, 'results', 'experiment_{}'.format(experiment_number))
