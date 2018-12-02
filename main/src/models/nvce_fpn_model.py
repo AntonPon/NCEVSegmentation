@@ -43,7 +43,7 @@ class NVCE_FPN(torch.nn.Module):
         self.enc4_key = None
 
 
-    def forward(self, x, is_keyframe=True):
+    def forward(self, x, is_keyframe=True, regularization=False):
         enc0 = self.enc0(x)
         pool0 = self.pool0(enc0)
 
@@ -56,13 +56,18 @@ class NVCE_FPN(torch.nn.Module):
         enc3 = self.enc3(tr2)
         tr3 = self.tr3(enc3)
 
+        reg = None
         if is_keyframe:
             self.enc4_key = self.enc4(tr3)
             self.enc4_key = self.norm(self.enc4_key)
         else:
             self.enc4_key = self.enc4_key.detach()
+            if regularization:
+                current_enc4 = self.enc4(tr3)
+                current_enc4 = self.norm(current_enc4).detach()
+                reg = current_enc4 - self.enc4_key
+                reg = torch.sqrt(torch.sum(reg * reg))
 
-        print(self.enc4_key.requires_grad)
         lateral4 = self.lateral4(self.enc4_key)
         lateral3 = self.lateral3(enc3)
         lateral2 = self.lateral2(enc2)
@@ -88,6 +93,8 @@ class NVCE_FPN(torch.nn.Module):
 
         final = self.final(smoothed)
 
+        if regularization:
+            return final, reg.item()
         return final
 if __name__ == "__main__":
     fpn = FPN(19)
