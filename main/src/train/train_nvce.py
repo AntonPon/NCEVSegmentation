@@ -5,18 +5,15 @@ import torch
 
 from main.src.models.fpn_model import FPN
 from main.src.models.nvce_fpn_model import NVCE_FPN
-from main.data.cityscapes_loader import get_data_loader, decode_segmap
+from main.data.cityscapes_loader import get_data_loader
 from main.src.train.accuracy import runningScore
 from main.src.loss.cross_entropy_loss import cross_entropy2d
 from main.src.utils.augmentation import RandomRotate, RandomHorizontallyFlip, Compose
 from tensorboardX import SummaryWriter
 import os
-import sys
-
-print('python version is: {}'.format(sys.version))
+os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 def train(agrs=''):
 
     batch_szie = 3
@@ -25,8 +22,15 @@ def train(agrs=''):
     cuda_usage = True
     epoch_number = 1000
     alpha = 0.3
-    distance_type = 'triple_random_detach'
-    experiment_number = 'fpn_with_loss_{}_distance_{}'.format('random_triple_loss_1layer', distance_type)
+    lambda_reg = 0.01
+
+    model_type = 'fpn'
+    distance_type = 'random_detach'
+    loss_type = 'triple_loss_1layer'
+    dataset_type = 'cityscapes'
+    experiment_number = '{}_with_loss_{}_distance_{}_reg'.format(model_type, loss_type, distance_type)
+    model_save_architecture = "model_{}_loss_{}_dataset_{}_alpha_{}_distance_{}_reg_model_nvce.pkl".format(model_type, loss_type, dataset_type, '0_3', distance_type)
+
     device = 'cpu'
     if torch.cuda.is_available() and cuda_usage:
         device = 'cuda:0'
@@ -39,8 +43,10 @@ def train(agrs=''):
     path_to_model = os.path.join('/home/anpon/master_thesis/fpn_bold_rewrite_cityscapes_best_model_iou.pkl')  # (save_dir_root, 'unet_cityscapes_best_model_iou_3.pkl')
 
     # root_data_path = '/home/user/Documents/datasets/cityscapes'
-    root_data_path = '/../../../data/anpon/cityscapes'
-    root_data_path_add = '/../../../data/anpon/cityscapes2/leftImg8bit_sequence'
+    root_data = '/../../../data/anpon/'
+    root_data_path = os.path.join(root_data, 'cityscapes')
+    root_data_path_add = os.path.join(root_data, 'cityscapes2/leftImg8bit_sequence')
+    save_model_path = os.path.join(root_data, 'snapshots_masterth', model_save_architecture)
 
     transform = Compose([RandomRotate(10), RandomHorizontallyFlip()])
     val_loader, train_loader = get_data_loader(root_data_path, root_data_path_add, transform, img_size,
@@ -96,12 +102,13 @@ def train(agrs=''):
             output_key_fpn = pre_trained(prev_images).data.max(1)[1]
 
             output_prev = model(prev_images)
-            output = model(images, is_keyframe=False)
+            output, reg = model(images, is_keyframe=False, regularization=True)
 
             # alpha = 0.4#get_alpha(dst)
             loss = alpha * criterion(input=output, target=labels, device=device) + \
                    (1 - alpha)/2 * (criterion(input=output_key, target=labels, device=device) +
-                                  criterion(input=output_prev, target=output_key_fpn, device=device))
+                                    criterion(input=output_prev, target=output_key_fpn, device=device)) + \
+                   lambda_reg * reg
 
             optimizer.zero_grad()
             loss.backward()
@@ -167,7 +174,7 @@ def train(agrs=''):
             state = {'epoch': epoch + 1,
                      'model_state': model.state_dict(),
                      'optimizer_state': optimizer.state_dict(), }
-            torch.save(state, "../../../data/anpon/snapshots_masterth/{}_{}_alpha_{}_distance_{}_model_nvce.pkl".format('fpn_loss', 'cityscapes', '0_3', distance_type))
+            torch.save(state, save_model_path)
     writer.close()
 
 
