@@ -142,13 +142,13 @@ def get_prev_img(img_path, distance, additional_path, split):
 if __name__ == '__main__':
     save_dir_root = os.path.join(os.path.dirname(os.path.abspath(__file__)))
     save_dir_root = os.path.join(save_dir_root, '..', '..')
-    path_to_model = os.path.join(save_dir_root, 'fpn_loss_cityscapes_alpha_0_3_distance_random_overfeat_model_nvce.pkl')
-    path_to_unet = os.path.join(save_dir_root, 'fpn_bold_rewrite_cityscapes_best_model_iou.pkl')
+    path_to_model = os.path.join(save_dir_root, '../../../data/anpon/snapshots_masterth', 'model_fpn_loss_triple_loss_2layers_poly_lr_30_step_dataset_cityscapes_alpha_0_3_distance_random_detach_false_wise_seperation_reg_l1_model_nvce.pkl')
+    path_to_unet = os.path.join(save_dir_root, '../../../data/anpon/snapshots_masterth/old', 'fpn_bold_rewrite_cityscapes_best_model_iou.pkl')
     save_path = os.path.join(save_dir_root, '../../../data/anpon/video')
     start_from = 0
-    data_root = os.path.join(save_dir_root, '../../../data/anpon/cityscapes2/leftImg8bit_sequence/train')
+    data_root = os.path.join(save_dir_root, '../../../data/anpon/cityscapes2/leftImg8bit_sequence/test')
     #data_root = os.path.join(save_dir_root, '../../../data/anpon/cityscapes/leftImg8bit/train')
-    folder_type = 'train'
+    folder_type = 'test'
     city = 'aachen'
     images = recursive_glob(data_root)
     images = images[: 500]
@@ -177,6 +177,7 @@ if __name__ == '__main__':
     model_unet.eval()
     with torch.no_grad():
         for i, image_path in enumerate(images):
+             
             img = cv2.imread(image_path)
             image = prepare_image(img, (512, 512))
             image = image.to(device)

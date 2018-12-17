@@ -134,7 +134,6 @@ class СityscapesLoader(Dataset):
         lbl = m.imread(lbl_path)
         lbl = self.encode_segmap(np.array(lbl, dtype=np.uint8))
 
-
         if self.augmentations is not None:
             img_prev, _ = self.augmentations(img_prev)
             img, lbl = self.augmentations(img, lbl)
@@ -226,63 +225,10 @@ def decode_segmap(temp, n_classes=19):
     rgb[:, :, 2] = b / 255.0
     return rgb
 
-import os
-from matplotlib import pyplot as plt
 
 
 def get_image_id(str_i):
     return '_'.join(str_i.split('/')[-1].split('_')[:3])
-"""
-if __name__ == '__main__':
-    transforms = Compose([
-        RandomHorizontallyFlip(),
-        RandomRotate(5)])
-    img_size = None
-    root_dir = 'data/images'
-    steps = [1, 2, 3, 4, 5, 10, 15, 19]
-    if not os.path.exists(root_dir):
-       os.mkdir(root_dir)
-    for step in steps:
-        subfolder_path = os.path.join(root_dir, 'step_{}'.format(step))
-        if not os.path.exists(subfolder_path):
-            os.mkdir(subfolder_path)
-        dataset = СityscapesLoader('/../../../../data/anpon/cityscapes', add_source='/../../../../data/anpon/cityscapes2/leftImg8bit_sequence',
-                                   augmentations=transforms, img_size=(256, 256), is_transform=True, step=step, split='val')
-        val_loader = DataLoader(dataset, batch_size=1, num_workers=2, shuffle=True)
-
-
-
-        #for i, key_f, current_f, mask, key_name, current_name, lbl_name in enumerate(val_loader):
-        for i, alpha in enumerate(val_loader):
-            print(alpha[0].shape, alpha[1].shape, alpha[2].shape)
-            '''
-            key_f = alpha[0][0]
-            current_f = alpha[1][0]
-            mask = alpha[2][0]
-            key_name = get_image_id(alpha[3][0])
-            current_name = get_image_id(alpha[4][0])
-            mask_name = get_image_id(alpha[5][0])
-
-            img_size = (512, 1024)
-            plt.subplot(311)
-
-            plt.imshow(m.imresize(key_f, img_size))
-            plt.xlabel('key_frame_{} '.format(key_name))
-
-            plt.subplot(312)
-            plt.imshow(m.imresize(current_f, img_size))
-            plt.xlabel('ground_truth_{}'.format(current_name))
-
-            plt.subplot(313)
-            plt.imshow(m.imresize(mask, img_size))
-            plt.xlabel('ground_truth_{}'.format(mask_name))
-            plt.tight_layout()
-            plt.savefig(os.path.join(subfolder_path, 'image_{}.png'.format(i)), bbox_inches='tight')
-            plt.close()
-            if i == 20:
-                break'''
-
-"""
 
 
 def get_data_loader(root_data_path, additional_path, transforms, img_size, batch_size=32, worker_num=8, step=1):
