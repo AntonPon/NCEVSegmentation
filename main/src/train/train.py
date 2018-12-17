@@ -11,16 +11,16 @@ from main.src.utils.augmentation import RandomRotate, RandomHorizontallyFlip, Co
 from main.src.utils.util import add_info, save_model
 
 from tensorboardX import SummaryWriter
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 
 def train(agrs=''):
 
-    batch_szie = 8
+    batch_szie = 4
     img_size = (512, 512)
     worker_num = 2
     cuda_usage = True
     epoch_number = 1000
-    experiment_number = 'fpn_4_{}_imgsize'.format(img_size[0])
+    experiment_number = 'fpn_4_512_{}_imgsize'.format(img_size[0])
     #root_data_path = '/home/user/Documents/datasets/cityscapes'
     root_data_path = '/../../../data/anpon/cityscapes'
     model_name = 'fpn_bold_rewrite_plus_{}_imsize'.format(img_size[0])

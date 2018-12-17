@@ -11,7 +11,8 @@ from main.src.loss.cross_entropy_loss import cross_entropy2d
 from main.src.utils.augmentation import RandomRotate, RandomHorizontallyFlip, Compose
 from tensorboardX import SummaryWriter
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+import numpy as np
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 
 def train(agrs=''):
@@ -21,15 +22,18 @@ def train(agrs=''):
     worker_num = 1
     cuda_usage = True
     epoch_number = 1000
+    learning_rate_step = 30
+    learning_rate = 1e-4
     alpha = 0.3
     lambda_reg = 0.01
 
     model_type = 'fpn'
-    distance_type = 'random_detach'
-    loss_type = 'triple_loss_1layer'
+    distance_type = 'random_detach_false_not_wise_seperation'
+    loss_type = 'triple_loss_2layers_poly_lr_30_step'
     dataset_type = 'cityscapes'
-    experiment_number = '{}_with_loss_{}_distance_{}_reg'.format(model_type, loss_type, distance_type)
-    model_save_architecture = "model_{}_loss_{}_dataset_{}_alpha_{}_distance_{}_reg_model_nvce.pkl".format(model_type, loss_type, dataset_type, '0_3', distance_type)
+    reg_type = 'l1'
+    experiment_number = '{}_with_loss_{}_distance_{}_reg_{}'.format(model_type, loss_type, distance_type, reg_type)
+    model_save_architecture = "model_{}_loss_{}_dataset_{}_alpha_{}_distance_{}_reg_{}_model_nvce.pkl".format(model_type, loss_type, dataset_type, '0_3', distance_type, reg_type)
 
     device = 'cpu'
     if torch.cuda.is_available() and cuda_usage:
@@ -39,14 +43,14 @@ def train(agrs=''):
     save_dir_path = os.path.join(save_dir_root, 'results', 'experiment_{}'.format(experiment_number))
     writer = SummaryWriter(log_dir=save_dir_path)
 
-    nvce_model_loader = os.path.join('/home/anpon/master_thesis', 'fpn_loss_cityscapes_best_model_nvce.pkl')
-    path_to_model = os.path.join('/home/anpon/master_thesis/fpn_bold_rewrite_cityscapes_best_model_iou.pkl')  # (save_dir_root, 'unet_cityscapes_best_model_iou_3.pkl')
-
     # root_data_path = '/home/user/Documents/datasets/cityscapes'
     root_data = '/../../../data/anpon/'
     root_data_path = os.path.join(root_data, 'cityscapes')
     root_data_path_add = os.path.join(root_data, 'cityscapes2/leftImg8bit_sequence')
     save_model_path = os.path.join(root_data, 'snapshots_masterth', model_save_architecture)
+
+    nvce_model_loader = None #os.path.join('/home/anpon/master_thesis', 'fpn_loss_cityscapes_best_model_nvce.pkl')
+    path_to_model = os.path.join(root_data, 'snapshots_masterth', 'old/' 'fpn_bold_rewrite_cityscapes_best_model_iou.pkl')  # (save_dir_root, 'unet_cityscapes_best_model_iou_3.pkl')
 
     transform = Compose([RandomRotate(10), RandomHorizontallyFlip()])
     val_loader, train_loader = get_data_loader(root_data_path, root_data_path_add, transform, img_size,
@@ -66,14 +70,14 @@ def train(agrs=''):
     model = NVCE_FPN(pre_trained) #NVCE(pre_trained)  # Unet()
     model.to(device)
 
-    if os.path.isfile(nvce_model_loader):
+    if nvce_model_loader is not None and os.path.isfile(nvce_model_loader):
         checkpoint_nvce = torch.load(nvce_model_loader)
         model.load_state_dict(checkpoint_nvce['model_state'])
         print('model nvce has been uploaded')
     else:
         print('the nvce model path is not found')
     # model = torch.nn.DataParallel(model)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-04, weight_decay=5e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=5e-4)
     # Setup Metrics
     criterion = cross_entropy2d
     running_metrics = runningScore(19)
@@ -85,14 +89,16 @@ def train(agrs=''):
     len_valload = len(val_loader)
     best_iou = -1
 
+
     #for param in pre_trained.parameters():
     #    param.requires_grad = False
 
-    for epoch in range(0, epoch_number):
+    for epoch in range(1, epoch_number+1):
         model.train()
         pre_trained.eval()
         train_loss = 0.
         for i, (images, prev_images, labels, dst) in enumerate(train_loader):
+            dst = 1/(dst.type(torch.FloatTensor)+1.)
             # cast data examples to cuda or cpu device
             prev_images = prev_images.to(device)
             images = images.to(device)
@@ -104,11 +110,12 @@ def train(agrs=''):
             output_prev = model(prev_images)
             output, reg = model(images, is_keyframe=False, regularization=True)
 
-            # alpha = 0.4#get_alpha(dst)
-            loss = alpha * criterion(input=output, target=labels, device=device) + \
-                   (1 - alpha)/2 * (criterion(input=output_key, target=labels, device=device) +
-                                    criterion(input=output_prev, target=output_key_fpn, device=device)) + \
-                   lambda_reg * reg
+            output_criterion = criterion(input=output, target=labels, device=device)
+            output_key_criterion = criterion(input=output_key, target=labels, device=device)
+            output_prev_criterion = criterion(input=output_prev, target=output_key_fpn, device=device)
+            loss = alpha * output_criterion + (1 - alpha) * ( output_key_criterion + output_prev_criterion)\
+                   + lambda_reg * reg
+            #loss = output_criterion + (output_key_criterion + output_prev_criterion) + lambda_reg * reg
 
             optimizer.zero_grad()
             loss.backward()
@@ -175,12 +182,22 @@ def train(agrs=''):
                      'model_state': model.state_dict(),
                      'optimizer_state': optimizer.state_dict(), }
             torch.save(state, save_model_path)
+        if epoch % learning_rate_step == 0:
+            learning_rate = poly_lr(learning_rate, epoch)
+            optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=5e-4)
+            print('optimizer has been changed to {} learning rate'.format(learning_rate))
+
     writer.close()
 
 
 def get_alpha(current_dist):
     a = 1.
     return a / (current_dist + 1)
+
+
+def poly_lr(prv_lr,  itr_number, k=0.1):
+    return prv_lr * np.exp(-k*itr_number)
+
 
 
 if __name__ == '__main__':
