@@ -9,7 +9,7 @@ class NVCE(Module):
         self.n_classes = n_classes
         self.in_channel = in_channels
         #self.extractor = extractor
-        unet_layers = list(extractor.children())
+        unet_layers = list(list(extractor.children())[0].children())
         self.key_frame = None
         self.res1 = unet_layers[0]
         self.maxpool1 = unet_layers[1]
