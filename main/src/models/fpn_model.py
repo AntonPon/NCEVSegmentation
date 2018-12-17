@@ -16,57 +16,6 @@ class FPNSegHead(nn.Module):
         x = nn.functional.relu(self.block1(x), inplace=True)
         return x
 
-"""
-class FPNSeg(nn.Module):
-
-    def __init__(self, num_classes, num_filters=128, num_filters_fpn=256, pretrained=True):
-        super().__init__()
-
-        # Feature Pyramid Network (FPN) with four feature maps of resolutions
-        # 1/4, 1/8, 1/16, 1/32 and `num_filters` filters for all feature maps.
-
-        self.fpn = FPN(num_filters=num_filters_fpn, pretrained=pretrained)
-
-        # The segmentation heads on top of the FPN
-
-        self.head1 = FPNSegHead(num_filters_fpn, num_filters, num_filters)
-        self.head2 = FPNSegHead(num_filters_fpn, num_filters, num_filters)
-        self.head3 = FPNSegHead(num_filters_fpn, num_filters, num_filters)
-        self.head4 = FPNSegHead(num_filters_fpn, num_filters, num_filters)
-
-        self.smooth = nn.Sequential(
-            nn.Conv2d(4 * num_filters, num_filters, kernel_size=3, padding=1),
-            nn.BatchNorm2d(num_filters),
-            nn.ReLU(),
-        )
-
-        self.smooth2 = nn.Sequential(
-            nn.Conv2d(num_filters, num_filters // 2, kernel_size=3, padding=1),
-            nn.BatchNorm2d(num_filters // 2),
-            nn.ReLU(),
-        )
-
-        self.final = nn.Conv2d(num_filters // 2, num_classes, kernel_size=3, padding=1)
-
-    def forward(self, x):
-
-        map0, map1, map2, map3, map4 = self.fpn(x)
-
-        map4 = nn.functional.upsample(self.head4(map4), scale_factor=8, mode="nearest")
-        map3 = nn.functional.upsample(self.head3(map3), scale_factor=4, mode="nearest")
-        map2 = nn.functional.upsample(self.head2(map2), scale_factor=2, mode="nearest")
-        map1 = nn.functional.upsample(self.head1(map1), scale_factor=1, mode="nearest")
-
-        smoothed = self.smooth(torch.cat([map4, map3, map2, map1], dim=1))
-        smoothed = nn.functional.upsample(smoothed , scale_factor=2, mode="nearest")
-        smoothed = self.smooth2(smoothed + map0)
-        smoothed = nn.functional.upsample(smoothed, scale_factor=2, mode="nearest")
-
-        final = self.final(smoothed)
-
-        return {'mask': final}
-"""
-
 
 class FPN(nn.Module):
 
