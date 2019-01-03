@@ -1,12 +1,13 @@
 from matplotlib import pyplot as plt
-from matplotlib import animation
 
 import os
 import cv2
+import time
 import torch
 import numpy as np
 # from main.src.models.nvce_model import NVCE
 # from main.src.models.unet_model import Unet
+from main.src.models.truncated_fpn_model import FPN_Truncated
 from main.src.models.fpn_model import FPN
 from main.src.models.nvce_fpn_model import NVCE_FPN
 from main.src.utils.util import recursive_glob
@@ -111,18 +112,33 @@ def decode_segmap(temp, n_classes=19):
 
 
 
-def save_mask(path_folder, mask, mask_unet, input, frame_number):
-    output = decode_segmap(mask.max(1)[1].cpu().numpy()[0])
+def save_mask(path_folder, mask, mask_unet, input, frame_number, distances):
+    outputs = [decode_segmap(mask_el.max(1)[1].cpu().numpy()[0]) for mask_el in mask]
     output_unet = decode_segmap(mask_unet.max(1)[1].cpu().numpy()[0])
     fig = plt.figure()
-    plt.subplot(131)
+    img_number = len(outputs) + 2
+    plt.subplot(101 + img_number*10)
     plt.imshow(output_unet)
+    plt.axis('off')
     plt.xlabel('fpn')
-    plt.subplot(132)
-    plt.imshow(output)
-    plt.xlabel('nvce_fpn')
-    plt.subplot(133)
-    plt.imshow(input)
+    for number, st in enumerate(distances):
+        plt.subplot(100 + 10 * img_number + number + 2)
+        plt.imshow(outputs[number])
+        plt.axis('off')
+        plt.xlabel('nvce_fpn_{}'.format(st))
+
+    #plt.subplot(163)
+    #plt.imshow(outputs[1])
+    #plt.xlabel('nvce_fpn_3')
+    #plt.subplot(164)
+    #plt.imshow(outputs[2])
+    #plt.xlabel('nvce_fpn_5')
+    #plt.subplot(165)
+    #plt.imshow(outputs[3])
+    #plt.xlabel('nvce_fpn_10')
+    plt.subplot(100 + img_number*10 + img_number)
+    plt.imshow(cv2.resize(input, (512, 512)))
+    plt.axis('off')
     plt.xlabel('input')
     plt.savefig(os.path.join(path_folder, '{}.png'.format(frame_number)))
     plt.close(fig)
@@ -138,12 +154,11 @@ def get_prev_img(img_path, distance, additional_path, split):
     return os.path.join(additional_path, split, elements[0], '_'.join(elements))
 
 
-
 if __name__ == '__main__':
     save_dir_root = os.path.join(os.path.dirname(os.path.abspath(__file__)))
     save_dir_root = os.path.join(save_dir_root, '..', '..')
     path_to_model = os.path.join(save_dir_root, '../../../data/anpon/snapshots_masterth', 'model_fpn_loss_triple_loss_2layers_poly_lr_30_step_dataset_cityscapes_alpha_0_3_distance_random_detach_false_wise_seperation_reg_l1_model_nvce.pkl')
-    path_to_unet = os.path.join(save_dir_root, '../../../data/anpon/snapshots_masterth/old', 'fpn_bold_rewrite_cityscapes_best_model_iou.pkl')
+    path_to_unet = os.path.join(save_dir_root, '../../../data/anpon/snapshots_masterth/old', 'fpn_bold_rewrite_cityscapes_best_model_iou.pkl') # 'fpn_bold_rewrite_plus_512_imgsize_truncated_cityscapes_best_model_iou.pkl')
     save_path = os.path.join(save_dir_root, '../../../data/anpon/video')
     start_from = 0
     data_root = os.path.join(save_dir_root, '../../../data/anpon/cityscapes2/leftImg8bit_sequence/test')
@@ -151,18 +166,22 @@ if __name__ == '__main__':
     folder_type = 'test'
     city = 'aachen'
     images = recursive_glob(data_root)
-    images = images[: 500]
+    image_number = 500
+    images = images[: image_number]
     print(images[:3])
     model_unet = FPN(num_classes=19) # torch.nn.DataParallel(Unet())
-    model = NVCE_FPN() # NVCE(torch.nn.DataParallel(Unet()))
+    steps = [1, 2, 5, 10, 15]
+    models = dict()
+    for step in steps:
+        models['model_{}'.format(step)] = NVCE_FPN() # NVCE(torch.nn.DataParallel(Unet()))
 
     if os.path.isfile(path_to_model):
         checkpoint = torch.load(path_to_model)
-        model.load_state_dict(checkpoint['model_state'])
+        for step in steps:
+            models['model_{}'.format(step)].load_state_dict(checkpoint['model_state'])
         print('model was uploaded')
     else:
         print(path_to_model + ' was not found')
-
     if os.path.isfile(path_to_unet):
         checkpoint = torch.load(path_to_unet)
         model_unet.load_state_dict(checkpoint['model_state'])
@@ -171,79 +190,39 @@ if __name__ == '__main__':
         print(path_to_unet + ' was not found')
 
     device = 'cuda:0'
-    model.to(device)
+    for step in steps:
+        print(step)
+        models['model_{}'.format(step)].to(device)
+        models['model_{}'.format(step)].eval()
     model_unet.to(device)
-    model.eval()
     model_unet.eval()
-    with torch.no_grad():
-        for i, image_path in enumerate(images):
-             
-            img = cv2.imread(image_path)
-            image = prepare_image(img, (512, 512))
-            image = image.to(device)
-            output = None # model(image)
-            output_unet = model_unet(image)
-            if (i) % 2 == 0:
-                output = model(image)
-            else:
-                output = model(image, False)
-            save_mask(save_path, output, output_unet, img, i)
-            print('{} out of {}'.format(i, len(images)))
 
-'''
-import time
-def speed_nvce():
-    save_dir_root = os.path.join(os.path.dirname(os.path.abspath(__file__)))
-    save_dir_root = os.path.join(save_dir_root, '..', '..')
-    path_to_model = os.path.join(save_dir_root, 'fpn_loss_cityscapes_alpha_0.2_distance_random_model_nvce.pkl')
-    path_to_unet = os.path.join(save_dir_root, 'fpn_bold_rewrite_cityscapes_best_model_iou.pkl')
+    experiments_number = 20
+    final_time = np.zeros((experiments_number + 1, len(steps)))
+    final_time[0] = steps
+    for k in range(experiments_number):
 
-    data_root = os.path.join(save_dir_root, '../../../data/anpon/cityscapes2/leftImg8bit_sequence/')
-    images = recursive_glob(data_root)
-    images = images[: 1000]
-    model_unet = load_network(FPN(num_classes=19), path_to_unet)  # torch.nn.DataParallel(Unet())
-    model = load_network(NVCE_FPN(), path_to_model)# NVCE(torch.nn.DataParallel(Unet()))
-    print('count_time for nvce: {}'.format(count_time(model, images)))
-    print('count_time for fpn: {}'.format(count_time(model_unet, images, True)))
+        total_time = np.zeros((image_number, len(steps)))
 
-
-def load_network(network, path_to_load):
-    model = network
-    if os.path.isfile(path_to_load):
-        checkpoint = torch.load(path_to_load)
-        model.load_state_dict(checkpoint['model_state'])
-        print('model fpn was uploaded')
-    else:
-        print(path_to_load + ' was not found')
-    return model
-
-
-def count_time(model, data=None, nvce=False):
-    device = 'cuda:0'
-    model.to(device)
-    model.eval()
-    time_count = 0
-    data_img = list()
-    for path_im in data:
-        img = cv2.imread(path_im)
-        image = prepare_image(img, (512, 512))
-        data_img.append(image)
-    print('start estimated time')
-    with torch.no_grad():
-        for i, image_r in enumerate(data_img):
-            image = image_r.to(device)
-            start = time.time()
-            if i % 2 == 0 or nvce:
-                output = model(image)
-            elif not nvce:
-                output = model(image, False)
-            end_t = time.time()
-            time_count += end_t - start
-            print('{}_{}'.format(i, end_t - start))
-    print('end estimated time')
-    return time_count
-
-
-if __name__ == '__main__':
-    speed_nvce()
-'''
+        with torch.no_grad():
+            for i, image_path in enumerate(images):
+                img = cv2.imread(image_path)
+                image = prepare_image(img, (512, 512))
+                image = image.to(device)
+                outputs = list()# model(image)
+                output_unet = model_unet(image)
+                for j, step in enumerate(steps):
+                    model = models['model_{}'.format(step)]
+                    is_key_frame = True
+                    if not i % step == 0:
+                        is_key_frame = False
+                    start_time = time.time()
+                    outputs.append(model(image, is_key_frame))
+                    end_time = time.time()
+                    total_time[i, j] = end_time - start_time
+                #save_mask(save_path, outputs, output_unet, img, i, steps)
+                #print('{} out of {}'.format(i, len(images)))
+        final_time[k] = np.mean(total_time[1:], axis=0)
+        print('{} out of {}'.format(k, experiments_number))
+    print(final_time)
+    print('average: {}'.format(np.mean(final_time, axis=0)))
