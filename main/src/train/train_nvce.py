@@ -28,7 +28,7 @@ def train(agrs=''):
     lambda_reg = 0.01
 
     model_type = 'fpn'
-    distance_type = 'random_detach_false_not_wise_seperation'
+    distance_type = 'random_detach_false_not_wise_separation_learning_poly_rate'
     loss_type = 'triple_loss_2layers_poly_lr_30_step'
     dataset_type = 'cityscapes'
     reg_type = 'l1'
@@ -50,7 +50,7 @@ def train(agrs=''):
     save_model_path = os.path.join(root_data, 'snapshots_masterth', model_save_architecture)
 
     nvce_model_loader = None #os.path.join('/home/anpon/master_thesis', 'fpn_loss_cityscapes_best_model_nvce.pkl')
-    path_to_model = os.path.join(root_data, 'snapshots_masterth', 'old/' 'fpn_bold_rewrite_cityscapes_best_model_iou.pkl')  # (save_dir_root, 'unet_cityscapes_best_model_iou_3.pkl')
+    path_to_model = os.path.join(root_data, 'snapshots_masterth', 'old/' 'fpn_bold_rewrite_plus_512_imsize_cityscapes_best_model_iou.pkl')#'fpn_bold_rewrite_cityscapes_best_model_iou.pkl')  # (save_dir_root, 'unet_cityscapes_best_model_iou_3.pkl')
 
     transform = Compose([RandomRotate(10), RandomHorizontallyFlip()])
     val_loader, train_loader = get_data_loader(root_data_path, root_data_path_add, transform, img_size,
@@ -113,7 +113,7 @@ def train(agrs=''):
             output_criterion = criterion(input=output, target=labels, device=device)
             output_key_criterion = criterion(input=output_key, target=labels, device=device)
             output_prev_criterion = criterion(input=output_prev, target=output_key_fpn, device=device)
-            loss = alpha * output_criterion + (1 - alpha) * ( output_key_criterion + output_prev_criterion)\
+            loss = alpha * output_criterion + (1 - alpha) * (output_key_criterion + output_prev_criterion)\
                    + lambda_reg * reg
             #loss = output_criterion + (output_key_criterion + output_prev_criterion) + lambda_reg * reg
 

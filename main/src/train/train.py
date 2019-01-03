@@ -3,13 +3,14 @@ import torch
 
 import os
 from main.src.models.fpn_model import FPN
+from main.src.models.truncated_fpn_model import FPN_Truncated
 from main.src.models.nvce_model import NVCE
 from main.data.data_loader_implemented import get_data_loader, decode_segmap
 from main.src.train.accuracy import runningScore
 from main.src.loss.cross_entropy_loss import cross_entropy2d
 from main.src.utils.augmentation import RandomRotate, RandomHorizontallyFlip, Compose, RandomCrop
 from main.src.utils.util import add_info, save_model
-
+import numpy as np
 from tensorboardX import SummaryWriter
 os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 
@@ -20,10 +21,12 @@ def train(agrs=''):
     worker_num = 2
     cuda_usage = True
     epoch_number = 1000
-    experiment_number = 'fpn_4_512_{}_imgsize'.format(img_size[0])
+    step_lr = 30
+    learning_rate = 1e-4
+    experiment_number = 'fpn_4_512_{}_imgsize_truncated'.format(img_size[0])
     #root_data_path = '/home/user/Documents/datasets/cityscapes'
     root_data_path = '/../../../data/anpon/cityscapes'
-    model_name = 'fpn_bold_rewrite_plus_{}_imsize'.format(img_size[0])
+    model_name = 'fpn_bold_rewrite_plus_{}_imgsize_truncated'.format(img_size[0])
 
     save_dir_root = os.path.join(os.path.dirname(os.path.abspath(__file__)))
     save_dir_path = os.path.join(save_dir_root, 'results', 'experiment_{}'.format(experiment_number))
@@ -41,10 +44,10 @@ def train(agrs=''):
     device = 'cpu'
     if torch.cuda.is_available() and cuda_usage:
         device = 'cuda:0'
-    model = FPN(num_classes=19)
+    model = FPN_Truncated(num_classes=19)#FPN(num_classes=19)
     model.to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-04, weight_decay=5e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=5e-4)
     criterion = cross_entropy2d
     # Setup Metrics
     running_metrics_val = runningScore(19)
@@ -52,7 +55,7 @@ def train(agrs=''):
 
 
     best_iou = -1
-    for epoch in range(0, epoch_number):
+    for epoch in range(1, epoch_number+1):
         train_loss, running_metrics_train = train_net(train_loader, model, device, running_metrics_train, criterion, optimizer)
         score_train, _ = running_metrics_train.get_scores()
         running_metrics_train.reset()
@@ -66,6 +69,11 @@ def train(agrs=''):
         if score['Mean IoU : \t'] >= best_iou:
             best_iou = score['Mean IoU : \t']
             save_model(epoch, model.state_dict(), optimizer.state_dict(), model_name)
+
+        if epoch % step_lr == 0:
+            learning_rate = poly_lr(learning_rate, epoch)
+            optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=5e-4)
+            print('optimizer has been changed to {} learning rate'.format(learning_rate))
 
 
 def train_net(train_loader, model,  device, metrics, criterion, optimizer):
@@ -108,6 +116,9 @@ def val_net(val_loader, model,  device, metrics, criterion):
             metrics.update(ground_truth, output)
     return (val_loss, metrics)
 
+
+def poly_lr(prv_lr,  itr_number, k=0.1):
+    return prv_lr * np.exp(-k*itr_number)
 
 if __name__ == '__main__':
     #parser = argparse.ArgumentParser(description='train hyperparameters')
