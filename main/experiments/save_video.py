@@ -10,12 +10,13 @@ import numpy as np
 from main.src.models.truncated_fpn_model import FPN_Truncated
 from main.src.models.fpn_model import FPN
 from main.src.models.nvce_fpn_model import NVCE_FPN
-from main.src.utils.util import recursive_glob
+#from main.src.utils.util import recursive_glob
 
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 
-class iterate_frames(object):
+'''
+class IterateFrames(object):
 
     def recursive_glob(self, rootdir='.', suffix=''):
         """Performs recursive glob with given suffix and rootdir
@@ -49,7 +50,13 @@ class iterate_frames(object):
         else:
             raise StopIteration()
 
-
+'''
+def recursive_glob(rootdir='.', suffix=''):
+    images = [os.path.join(looproot, filename)
+              for looproot, _, filenames in os.walk(rootdir)
+              for filename in filenames if filename.endswith(suffix)]
+    images.sort()
+    return images
 
 
 def prepare_image(img, img_size=(256, 256)):
@@ -110,37 +117,46 @@ def decode_segmap(temp, n_classes=19):
     return rgb
 
 
-
-
-def save_mask(path_folder, mask, mask_unet, input, frame_number, distances):
+def save_mask(path_folder, mask, mask_unet, input, frame_number, distances, ):
     outputs = [decode_segmap(mask_el.max(1)[1].cpu().numpy()[0]) for mask_el in mask]
     output_unet = decode_segmap(mask_unet.max(1)[1].cpu().numpy()[0])
-    fig = plt.figure()
-    img_number = len(outputs) + 2
-    plt.subplot(101 + img_number*10)
-    plt.imshow(output_unet)
-    plt.axis('off')
-    plt.xlabel('fpn')
-    for number, st in enumerate(distances):
-        plt.subplot(100 + 10 * img_number + number + 2)
-        plt.imshow(outputs[number])
-        plt.axis('off')
-        plt.xlabel('nvce_fpn_{}'.format(st))
+    #output_unet_truncated = decode_segmap(truncated.max(1)[1].cpu().numpy()[0])
+    input = cv2.resize(input, (512, 512))
 
-    #plt.subplot(163)
-    #plt.imshow(outputs[1])
-    #plt.xlabel('nvce_fpn_3')
-    #plt.subplot(164)
-    #plt.imshow(outputs[2])
-    #plt.xlabel('nvce_fpn_5')
-    #plt.subplot(165)
-    #plt.imshow(outputs[3])
-    #plt.xlabel('nvce_fpn_10')
+    fig = plt.figure(figsize=(10, 8))
+    img_number = len(outputs) + 1
+    '''
+    plt.subplot(101 + img_number*10)
+    
+    plt.imshow(output_unet)
+    plt.xlabel('baseline')
+    plt.xticks([], ' ')
+    plt.yticks([], ' ')
+    '''
+    #plt.savefig(os.path.join(path_folder, 'baseline_{}.png'.format(frame_number)))
+    '''
+    plt.imshow(output_unet_truncated)
+    plt.xlabel('truncated')
+    plt.xticks([], ' ')
+    plt.yticks([], ' ')
+    plt.savefig(os.path.join(path_folder, 'truncated_{}.png'.format(frame_number)))
+    '''
+    for number, st in enumerate(distances):
+        plt.subplot(100 + 10 * img_number + number + 1)
+        plt.imshow(outputs[number])
+        plt.xlabel('distance: {}'.format(st))
+        plt.xticks([], ' ')
+        plt.yticks([], ' ')
+        #plt.savefig(os.path.join(path_folder, 'distance_{}_{}.png'.format(number, frame_number)))
+
     plt.subplot(100 + img_number*10 + img_number)
-    plt.imshow(cv2.resize(input, (512, 512)))
-    plt.axis('off')
+    plt.imshow(input)
     plt.xlabel('input')
-    plt.savefig(os.path.join(path_folder, '{}.png'.format(frame_number)))
+    plt.xticks([], ' ')
+    plt.yticks([], ' ')
+    # plt.savefig(os.path.join(path_folder, '{}.png'.format(frame_number)))
+    plt.savefig(os.path.join(path_folder, 'input_{}.png'.format(frame_number)))
+    
     plt.close(fig)
 
 
@@ -154,12 +170,20 @@ def get_prev_img(img_path, distance, additional_path, split):
     return os.path.join(additional_path, split, elements[0], '_'.join(elements))
 
 
+def get_image(path_to_image, device):
+    img = cv2.imread(image_path)
+    image = prepare_image(img, (512, 512))
+    image = image.to(device)
+    return img, image
+
+
 if __name__ == '__main__':
     save_dir_root = os.path.join(os.path.dirname(os.path.abspath(__file__)))
     save_dir_root = os.path.join(save_dir_root, '..', '..')
     path_to_model = os.path.join(save_dir_root, '../../../data/anpon/snapshots_masterth', 'model_fpn_loss_triple_loss_2layers_poly_lr_30_step_dataset_cityscapes_alpha_0_3_distance_random_detach_false_wise_seperation_reg_l1_model_nvce.pkl')
-    path_to_unet = os.path.join(save_dir_root, '../../../data/anpon/snapshots_masterth/old', 'fpn_bold_rewrite_cityscapes_best_model_iou.pkl') # 'fpn_bold_rewrite_plus_512_imgsize_truncated_cityscapes_best_model_iou.pkl')
+    path_to_unet = os.path.join(save_dir_root, '../../../data/anpon/snapshots_masterth/old', 'fpn_bold_rewrite_cityscapes_best_model_iou.pkl')
     save_path = os.path.join(save_dir_root, '../../../data/anpon/video')
+    #path_to_truncated = os.path.join(save_dir_root, 'fpn_bold_rewrite_plus_512_imgsize_truncated_cityscapes_best_model_iou.pkl')
     start_from = 0
     data_root = os.path.join(save_dir_root, '../../../data/anpon/cityscapes2/leftImg8bit_sequence/test')
     #data_root = os.path.join(save_dir_root, '../../../data/anpon/cityscapes/leftImg8bit/train')
@@ -170,11 +194,20 @@ if __name__ == '__main__':
     images = images[: image_number]
     print(images[:3])
     model_unet = FPN(num_classes=19) # torch.nn.DataParallel(Unet())
-    steps = [1, 2, 5, 10, 15]
+    #model_truncated = FPN_Truncated(num_classes=19)
+    steps = [5]
     models = dict()
     for step in steps:
         models['model_{}'.format(step)] = NVCE_FPN() # NVCE(torch.nn.DataParallel(Unet()))
+    '''
+    if os.path.isfile(path_to_truncated):
+        checkpoint = torch.load(path_to_truncated)
 
+        model_truncated.load_state_dict(checkpoint['model_state'])
+        print('model was uploaded')
+    else:
+        print(path_to_truncated + ' was not found')
+    '''
     if os.path.isfile(path_to_model):
         checkpoint = torch.load(path_to_model)
         for step in steps:
@@ -196,21 +229,25 @@ if __name__ == '__main__':
         models['model_{}'.format(step)].eval()
     model_unet.to(device)
     model_unet.eval()
+    #model_truncated.to(device)
+    #model_truncated.eval()
 
-    experiments_number = 20
+    experiments_number = 1
     final_time = np.zeros((experiments_number + 1, len(steps)))
     final_time[0] = steps
+    unet_basic_time = []
     for k in range(experiments_number):
-
         total_time = np.zeros((image_number, len(steps)))
 
         with torch.no_grad():
             for i, image_path in enumerate(images):
-                img = cv2.imread(image_path)
-                image = prepare_image(img, (512, 512))
-                image = image.to(device)
+                img_numpy, image = get_image(image_path, device)
                 outputs = list()# model(image)
+                start_unet_time = time.time()
                 output_unet = model_unet(image)
+                #output_fpn_truncated = model_truncated(image)
+                end_unet_time = time.time()
+                unet_basic_time.append(end_unet_time - start_unet_time)
                 for j, step in enumerate(steps):
                     model = models['model_{}'.format(step)]
                     is_key_frame = True
@@ -220,9 +257,13 @@ if __name__ == '__main__':
                     outputs.append(model(image, is_key_frame))
                     end_time = time.time()
                     total_time[i, j] = end_time - start_time
-                #save_mask(save_path, outputs, output_unet, img, i, steps)
-                #print('{} out of {}'.format(i, len(images)))
-        final_time[k] = np.mean(total_time[1:], axis=0)
+                save_mask(save_path, outputs, output_unet, img_numpy, i, steps)
+                print('{} out of {}'.format(i, len(images)))
+        #final_time[k+1] = np.mean(total_time, axis=0)
         print('{} out of {}'.format(k, experiments_number))
     print(final_time)
-    print('average: {}'.format(np.mean(final_time, axis=0)))
+    print('average: {}'.format(np.mean(final_time[1:], axis=0)))
+    print('\n average truncated unet: {}'.format(np.mean(unet_basic_time)))
+    print(unet_basic_time)
+
+

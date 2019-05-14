@@ -17,6 +17,7 @@ class IoU(nn.Module):
 
 def cross_entropy2d(input, target, weight=None, size_average=True, device='cpu', frame_distance=None):
     log_p1 = F.log_softmax(input, dim=1)
+    print(log_p1.shape)
     mask = target >= 0
     loss = F.nll_loss(log_p1, target, ignore_index=250,
                       weight=weight, size_average=False, reduce=False, reduction='none')

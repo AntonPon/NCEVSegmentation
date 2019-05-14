@@ -52,6 +52,7 @@ class NVCE_FPN(torch.nn.Module):
         enc2 = self.enc2(tr1)
         tr2 = self.tr2(enc2)
 
+
         reg = None
         if is_keyframe:
             self.enc3_key = self.enc3(tr2)
@@ -77,6 +78,29 @@ class NVCE_FPN(torch.nn.Module):
 
         lateral4 = self.lateral4(self.enc4_key)
         lateral3 = self.lateral3(self.enc3_key)
+
+        '''
+        enc3_key = self.enc3(tr2)
+        tr3 = self.tr3(enc3_key)
+
+        reg = None
+        if is_keyframe:
+
+            self.enc4_key = self.enc4(tr3)
+            self.enc4_key = self.norm(self.enc4_key)
+        else:
+            if regularization:
+
+                current_enc4 = self.enc4(tr3)
+                current_enc4 = self.norm(current_enc4)
+
+                reg_4 = current_enc4 - self.enc4_key
+                # reg = torch.sqrt(torch.sum(reg_4 * reg_4) + torch.sum(reg_3 * reg_3)) L2
+                reg = torch.sum(torch.abs(reg_4))
+
+        lateral4 = self.lateral4(self.enc4_key)
+        lateral3 = self.lateral3(enc3_key)
+        '''
         lateral2 = self.lateral2(enc2)
         lateral1 = self.lateral1(enc1)
         lateral0 = self.lateral0(enc0)

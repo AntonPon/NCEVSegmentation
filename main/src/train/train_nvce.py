@@ -12,7 +12,7 @@ from main.src.utils.augmentation import RandomRotate, RandomHorizontallyFlip, Co
 from tensorboardX import SummaryWriter
 import os
 import numpy as np
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 
 
 def train(agrs=''):
@@ -21,15 +21,15 @@ def train(agrs=''):
     img_size = (512, 512)
     worker_num = 1
     cuda_usage = True
-    epoch_number = 1000
+    epoch_number = 1 #1000
     learning_rate_step = 30
     learning_rate = 1e-4
     alpha = 0.3
     lambda_reg = 0.01
-
+    data_loader_step = 2
     model_type = 'fpn'
     distance_type = 'random_detach_false_not_wise_separation_learning_poly_rate'
-    loss_type = 'triple_loss_2layers_poly_lr_30_step'
+    loss_type = 'triple_loss_1layers_poly_lr_30_step_final_dist_{}_need_to_delete'.format(data_loader_step)
     dataset_type = 'cityscapes'
     reg_type = 'l1'
     experiment_number = '{}_with_loss_{}_distance_{}_reg_{}'.format(model_type, loss_type, distance_type, reg_type)
@@ -49,13 +49,12 @@ def train(agrs=''):
     root_data_path_add = os.path.join(root_data, 'cityscapes2/leftImg8bit_sequence')
     save_model_path = os.path.join(root_data, 'snapshots_masterth', model_save_architecture)
 
-    nvce_model_loader = None #os.path.join('/home/anpon/master_thesis', 'fpn_loss_cityscapes_best_model_nvce.pkl')
+    nvce_model_loader = os.path.join('/../../data/anpon/snapshots_masterth/', 'model_fpn_loss_triple_loss_2layers_poly_lr_30_step_final_dist_2_dataset_cityscapes_alpha_0_3_distance_random_detach_false_not_wise_separation_learning_poly_rate_reg_l1_model_nvce.pkl')
     path_to_model = os.path.join(root_data, 'snapshots_masterth', 'old/' 'fpn_bold_rewrite_plus_512_imsize_cityscapes_best_model_iou.pkl')#'fpn_bold_rewrite_cityscapes_best_model_iou.pkl')  # (save_dir_root, 'unet_cityscapes_best_model_iou_3.pkl')
 
     transform = Compose([RandomRotate(10), RandomHorizontallyFlip()])
     val_loader, train_loader = get_data_loader(root_data_path, root_data_path_add, transform, img_size,
-                                               batch_size=batch_szie, worker_num=worker_num)
-    #val_decode_segmap = decode_segmap
+                                               batch_size=batch_szie, worker_num=worker_num, step=data_loader_step)
 
     pre_trained = FPN(num_classes=19) #DataParallel(Unet())
     pre_trained.to(device)
@@ -94,6 +93,7 @@ def train(agrs=''):
     #    param.requires_grad = False
 
     for epoch in range(1, epoch_number+1):
+        '''
         model.train()
         pre_trained.eval()
         train_loss = 0.
@@ -108,13 +108,16 @@ def train(agrs=''):
             output_key_fpn = pre_trained(prev_images).data.max(1)[1]
 
             output_prev = model(prev_images)
+            model(prev_images)
             output, reg = model(images, is_keyframe=False, regularization=True)
 
             output_criterion = criterion(input=output, target=labels, device=device)
             output_key_criterion = criterion(input=output_key, target=labels, device=device)
             output_prev_criterion = criterion(input=output_prev, target=output_key_fpn, device=device)
-            loss = alpha * output_criterion + (1 - alpha) * (output_key_criterion + output_prev_criterion)\
-                   + lambda_reg * reg
+            loss = alpha * output_criterion + (1 - alpha) * (output_key_criterion+ output_prev_criterion) + \
+                   lambda_reg * reg
+
+
             #loss = output_criterion + (output_key_criterion + output_prev_criterion) + lambda_reg * reg
 
             optimizer.zero_grad()
@@ -138,7 +141,7 @@ def train(agrs=''):
         writer.add_scalar('miou/train_current_frame', score_train['Mean IoU : \t'], epoch)
         writer.add_scalar('miou/train_key_frame', score_key_train['Mean IoU : \t'], epoch)
         writer.add_scalar('total_loss/train', train_loss / len_trainload, epoch)
-
+        '''
         model.eval()
         val_loss = 0.
         with torch.no_grad():
@@ -165,15 +168,19 @@ def train(agrs=''):
 
         score, class_iou = running_metrics.get_scores()
         for k, v in score.items():
-            print(k, v)
+            print('current: {}_{}'.format(k, v))
         score_key, _ = running_metrics_keyframe.get_scores()
+        for k, v in score_key.items():
+            print('key: {}_{}'.format(k, v))
+
         running_metrics.reset()
         running_metrics_keyframe.reset()
-
+        '''
         writer.add_scalar('total_loss/val', val_loss / len_valload, epoch)
         writer.add_scalar('miou/val_current_frame', score['Mean IoU : \t'], epoch)
         writer.add_scalar('miou/val_key_frame', score_key['Mean IoU : \t'], epoch)
-
+        
+        
         if score_key['Mean IoU : \t'] >= best_iou:
         #if ((1 - alpha) * score_key_train['Mean IoU : \t'] + alpha * score_train['Mean IoU : \t']) >= best_iou:
             #best_iou = score['Mean IoU : \t']
@@ -186,7 +193,7 @@ def train(agrs=''):
             learning_rate = poly_lr(learning_rate, epoch)
             optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=5e-4)
             print('optimizer has been changed to {} learning rate'.format(learning_rate))
-
+'''
     writer.close()
 
 

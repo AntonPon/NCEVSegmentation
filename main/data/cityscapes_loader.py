@@ -116,7 +116,11 @@ class СityscapesLoader(Dataset):
         :param index:
         """
         img_path = self.files[self.split][index].rstrip()
-        distance = np.random.randint(1, 11)  # self.step
+        distance = self.step
+        if distance == 1:
+              distance = np.random.randint(1, 11)  # self.step
+
+        print(distance)
 
         img_path_prev = self.get_prev_img(img_path, distance, self.add_source, self.split)
         lbl_path = os.path.join(self.annotations_base,
